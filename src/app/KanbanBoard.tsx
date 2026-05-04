@@ -19,7 +19,7 @@ type TaskFormState = {
   priority: TaskPriority;
 };
 
-const STORAGE_KEY = "my-task-hermes-app:tasks:prospecting-2026-05-04";
+const STORAGE_KEY = "my-task-hermes-app:tasks:prospecting-2026-05-04-v20";
 
 const columns: Array<{
   status: TaskStatus;
@@ -41,98 +41,146 @@ const prospectPipelineTasks: Task[] = [
   {
     id: "prospect-1",
     title: "Dott.sa Demaria Daniela",
-    description: "Categoria/Città: Ambulatorio veterinario · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8275113,8.1777234\nTelefono: +39 328 3068421\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni telefoniche perse da ricerche urgenti “veterinario vicino a me” e poca fiducia senza pagina servizi\nCompetitor con sito: Ordine Veterinari Asti | (https://www.veterinariasti.it/); Ordine di Asti - fnovi (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Dott.sa Demaria Daniela cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.500 setup + €129/mese\nDemo: https://client-1-dott-sa-demaria-daniela.vercel.app\nRepo: https://github.com/vindepemarte/client-1-dott-sa-demaria-daniela",
+    description: "Categoria/Città: Ambulatorio veterinario · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8275113,8.1777234\nTelefono: +39 328 3068421\nSito preparato: https://client-1-dott-sa-demaria-daniela.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-dott-sa-demaria-daniela\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni telefoniche perse da ricerche urgenti “veterinario vicino a me” e poca fiducia senza pagina servizi\nCompetitor con presenza web: Ordine Veterinari Asti | (https://www.veterinariasti.it/); Ordine di Asti - fnovi (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Dott.sa Demaria Daniela: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.500 setup + €129/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-2",
     title: "Assaggio d'India",
-    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9049108,8.2188873\nTelefono: +39 0141 272386\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Assaggio d'India cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-assaggio-dindia.vercel.app\nRepo: https://github.com/vindepemarte/client-1-assaggio-dindia",
+    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9049108,8.2188873\nTelefono: +39 0141 272386\nSito preparato: https://client-1-assaggio-dindia.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-assaggio-dindia\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Assaggio d'India: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-3",
     title: "Francese",
-    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8993655,8.2035828\nTelefono: +39 0141 592321\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Francese cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-francese.vercel.app\nRepo: https://github.com/vindepemarte/client-1-francese",
+    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8993655,8.2035828\nTelefono: +39 0141 592321\nSito preparato: https://client-1-francese.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-francese\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Francese: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-4",
     title: "Il forno di Vaglierano",
-    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8781984,8.1262841\nTelefono: +39 0141200282\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: panetteria Asti - Dolce Forno (https://dolcefornoasti.it/); Al Dolce Ci Penso Io - Pasticceria Asti (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Il forno di Vaglierano cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-il-forno-di-vaglierano.vercel.app\nRepo: https://github.com/vindepemarte/client-1-il-forno-di-vaglierano",
+    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8781984,8.1262841\nTelefono: +39 0141200282\nSito preparato: https://client-1-il-forno-di-vaglierano.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-il-forno-di-vaglierano\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: panetteria Asti - Dolce Forno (https://dolcefornoasti.it/); Al Dolce Ci Penso Io - Pasticceria Asti (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Il forno di Vaglierano: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-5",
     title: "Perfec7 Coaching Asti",
-    description: "Categoria/Città: Palestra / coaching · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.902135,8.2091927\nTelefono: +393332002067\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. lead persi per prova gratuita, programmi e richieste WhatsApp fuori orario\nCompetitor con sito: Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale); Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Perfec7 Coaching Asti cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-perfec7-coaching-asti.vercel.app\nRepo: https://github.com/vindepemarte/client-1-perfec7-coaching-asti",
+    description: "Categoria/Città: Palestra / coaching · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.902135,8.2091927\nTelefono: +393332002067\nSito preparato: https://client-1-perfec7-coaching-asti.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-perfec7-coaching-asti\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. lead persi per prova gratuita, programmi e richieste WhatsApp fuori orario\nCompetitor con presenza web: Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale); Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Perfec7 Coaching Asti: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-6",
     title: "El pan d'na volta",
-    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3902165,7.5476531\nTelefono: +39 0171 693035\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato El pan d'na volta cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-el-pan-dna-volta.vercel.app\nRepo: https://github.com/vindepemarte/client-1-el-pan-dna-volta",
+    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3902165,7.5476531\nTelefono: +39 0171 693035\nSito preparato: https://client-1-el-pan-dna-volta.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-el-pan-dna-volta\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per El pan d'na volta: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-7",
     title: "L'Angolo del Pane Panetteria e Alimentari",
-    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.4942466,7.5449612\nTelefono: +39 339 6811887\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato L'Angolo del Pane Panetteria e Alimentari cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-langolo-del-pane-panetteri.vercel.app\nRepo: https://github.com/vindepemarte/client-1-langolo-del-pane-panetteria-e-alimentari",
+    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.4942466,7.5449612\nTelefono: +39 339 6811887\nSito preparato: https://client-1-langolo-del-pane-panetteri.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-langolo-del-pane-panetteria-e-alimentari\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per L'Angolo del Pane Panetteria e Alimentari: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-8",
     title: "Trattoria dei Ronchi",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.433995,7.5898115\nTelefono: +39 0171 43287\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Trattoria dei Ronchi cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-trattoria-dei-ronchi.vercel.app\nRepo: https://github.com/vindepemarte/client-1-trattoria-dei-ronchi",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.433995,7.5898115\nTelefono: +39 0171 43287\nSito preparato: https://client-1-trattoria-dei-ronchi.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-trattoria-dei-ronchi\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Trattoria dei Ronchi: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-9",
     title: "Pizzeria Il Portico",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3786351,7.5364142\nTelefono: +39 0171 697772\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Pizzeria Il Portico cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-pizzeria-il-portico.vercel.app\nRepo: https://github.com/vindepemarte/client-1-pizzeria-il-portico",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3786351,7.5364142\nTelefono: +39 0171 697772\nSito preparato: https://client-1-pizzeria-il-portico.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-pizzeria-il-portico\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Pizzeria Il Portico: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   },
   {
     id: "prospect-10",
     title: "Cielo Azzurro",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3793215,7.5371446\nTelefono: +39 0171 67345\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Cielo Azzurro cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-cielo-azzurro.vercel.app\nRepo: https://github.com/vindepemarte/client-1-cielo-azzurro",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3793215,7.5371446\nTelefono: +39 0171 67345\nSito preparato: https://client-1-cielo-azzurro.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-cielo-azzurro\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Cielo Azzurro: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-11",
+    title: "Vanity",
+    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9035325,8.2155388\nTelefono: +39 324 536 9335\nSito preparato: https://client-1-vanity.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-vanity\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Vanity: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-12",
+    title: "Sun&Beauty",
+    description: "Categoria/Città: Centro estetico · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9149862,8.2264203\nTelefono: +39 0141 273 323\nSito preparato: https://client-1-sun-beauty.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-sun-beauty\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. richieste perse da persone che confrontano trattamenti, prezzi indicativi e disponibilità prima di chiamare\nCompetitor con presenza web: Centro estetico competitor (https://www.google.com/search?q=centro+estetico+sito+ufficiale+Piemonte); Beauty salon online (https://www.google.com/search?q=centro+benessere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Sun&Beauty: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.100 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-13",
+    title: "DentalBio - Asti",
+    description: "Categoria/Città: Studio dentistico · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9036923,8.2169134\nTelefono: +39 0141 532616\nSito preparato: https://client-1-dentalbio-asti.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-dentalbio-asti\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. nuovi pazienti persi quando cercano uno studio vicino e trovano solo directory senza una pagina autorevole\nCompetitor con presenza web: Studio dentistico competitor (https://www.google.com/search?q=studio+dentistico+sito+ufficiale+Piemonte); Dentista con presenza web (https://www.google.com/search?q=dentista+sito+ufficiale+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per DentalBio - Asti: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.800 setup + €149/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-14",
+    title: "Fiandra Patrizia",
+    description: "Categoria/Città: Ambulatorio veterinario · Torino\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=45.0809023,7.6424922\nTelefono: +39 011 7493472\nSito preparato: https://client-1-fiandra-patrizia.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-fiandra-patrizia\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. contatti persi da ricerche urgenti “veterinario vicino a me” quando mancano servizi, orari e fiducia online\nCompetitor con presenza web: Ordine Veterinari Asti (https://www.veterinariasti.it/); FNOVI Asti (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Fiandra Patrizia: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.500 setup + €129/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-15",
+    title: "Club Trapani",
+    description: "Categoria/Città: Palestra / coaching · Torino\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=45.0720394,7.6403618\nTelefono: +39 011 33 7109\nSito preparato: https://client-1-club-trapani.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-club-trapani\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. lead persi per prove gratuite, programmi e richieste fuori orario non raccolte in modo ordinato\nCompetitor con presenza web: Palestra area locale (https://www.google.com/search?q=palestra+personal+training+sito+ufficiale); Fitness competitor online (https://www.google.com/search?q=fitness+coach+sito+ufficiale+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Club Trapani: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-16",
+    title: "La Panetteria di Santina",
+    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8994823,8.1944089\nTelefono: +39 340 569 2096\nSito preparato: https://client-1-la-panetteria-di-santina.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-la-panetteria-di-santina\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da attività con sito e scheda più chiara\nCompetitor con presenza web: Dolce Forno Asti (https://dolcefornoasti.it/); Al Dolce Ci Penso Io (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per La Panetteria di Santina: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-17",
+    title: "Tutti Qui",
+    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8962582,8.2069474\nTelefono: +39 0141 1766002\nSito preparato: https://client-1-tutti-qui.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-tutti-qui\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e richieste perse quando le persone cercano menu, orari e contatto rapido dal telefono\nCompetitor con presenza web: L’Antico Casale Asti (https://anticocasaleasti.it/); La Regibussa (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Tutti Qui: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-18",
+    title: "Il bello delle donne",
+    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9034018,8.2157853\nTelefono: +39 0141 556285\nSito preparato: https://client-1-il-bello-delle-donne.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-il-bello-delle-donne\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Il bello delle donne: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-19",
+    title: "Emanuela Acconciature",
+    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9015957,8.1996743\nTelefono: +39 0141 592 173\nSito preparato: https://client-1-emanuela-acconciature.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-emanuela-acconciature\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Emanuela Acconciature: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-20",
+    title: "Immagine Donna",
+    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8586196,8.1594969\nTelefono: +39 338 4494318\nSito preparato: https://client-1-immagine-donna.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-immagine-donna\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Immagine Donna: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
     priority: "High",
     status: "done",
   }
 ];
 
-const seededTasks: Task[] = [
-  {
-    id: "seed-1",
-    title: "Draft launch checklist",
-    description: "Outline the final QA pass, device checks, and release notes.",
-    priority: "High",
-    status: "todo",
-  },
-  {
-    id: "seed-2",
-    title: "Refine onboarding copy",
-    description: "Tighten the hero message and clarify the first-run empty state.",
-    priority: "Medium",
-    status: "in-progress",
-  },
-  {
-    id: "seed-3",
-    title: "Archive resolved bugs",
-    description: "Close completed tickets and capture any follow-up polish items.",
-    priority: "Low",
-    status: "done",
-  },
-];
+const seededTasks: Task[] = prospectPipelineTasks;
 
 const emptyFormState: TaskFormState = {
   title: "",
@@ -283,10 +331,10 @@ export default function KanbanBoard() {
                 my-task-hermes-app
               </div>
               <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Pipeline prospect locali Italia
+                Pipeline 20 prospect locali Italia
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                Board aggiornata con i 10 prospect Asti/Cuneo: ricerca, demo Vercel, repo GitHub, pitch e prezzi raccomandati. Usa i pulsanti sotto per caricare o resettare la pipeline anche se il browser aveva vecchio localStorage.
+                Board aggiornata con 20 prospect: ricerca, demo Vercel production-ready, repo GitHub, pitch e prezzi raccomandati. Le card includono link demo, fonti, telefono, proposta commerciale e footer legale richiesto.
               </p>
             </div>
 
@@ -303,7 +351,7 @@ export default function KanbanBoard() {
                 onClick={resetProspectPipeline}
                 className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
               >
-                Reset demo prospect
+                Reset pipeline 20 prospect
               </button>
             </div>
 
