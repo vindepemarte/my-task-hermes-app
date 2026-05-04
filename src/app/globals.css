@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f4ee;
+  --foreground: #18212f;
+  --muted: #667085;
+  --surface: rgba(255, 255, 255, 0.76);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --border: rgba(24, 33, 47, 0.12);
+  --shadow: 0 20px 60px rgba(26, 43, 74, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(255, 181, 71, 0.22), transparent 24%),
+    radial-gradient(circle at top right, rgba(53, 119, 241, 0.18), transparent 26%),
+    linear-gradient(180deg, #f8f6f0 0%, #eef3fb 100%);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(53, 119, 241, 0.2);
+}
+
+.glass-panel {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow);
+}
+
+.board-card {
+  background: var(--surface-strong);
+  box-shadow: 0 16px 40px rgba(18, 32, 56, 0.08);
+}
