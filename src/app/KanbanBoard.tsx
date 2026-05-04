@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useSyncExternalStore } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type TaskStatus = "todo" | "in-progress" | "done";
 type TaskPriority = "Low" | "Medium" | "High";
@@ -67,8 +67,6 @@ const emptyFormState: TaskFormState = {
   priority: "Medium",
 };
 
-const taskListeners = new Set<() => void>();
-
 function isTaskPriority(value: unknown): value is TaskPriority {
   return value === "Low" || value === "Medium" || value === "High";
 }
@@ -113,38 +111,33 @@ function readStoredTasks(): Task[] {
   }
 }
 
-function subscribeToTasks(onStoreChange: () => void) {
-  taskListeners.add(onStoreChange);
-
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY) {
-      onStoreChange();
-    }
-  };
-
-  window.addEventListener("storage", onStorage);
-
-  return () => {
-    taskListeners.delete(onStoreChange);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-function writeTasks(nextTasks: Task[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTasks));
-
-  taskListeners.forEach((listener) => {
-    listener();
-  });
-}
-
 export default function KanbanBoard() {
   const [formState, setFormState] = useState<TaskFormState>(emptyFormState);
-  const tasks = useSyncExternalStore(
-    subscribeToTasks,
-    readStoredTasks,
-    () => seededTasks,
-  );
+  const [tasks, setTasks] = useState<Task[]>(() => readStoredTasks());
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) {
+        setTasks(readStoredTasks());
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  const writeTasks = (nextTasks: Task[]) => {
+    setTasks(nextTasks);
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTasks));
+    } catch {
+      // The board should keep working even if browser storage is unavailable.
+    }
+  };
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.status === "done").length;
