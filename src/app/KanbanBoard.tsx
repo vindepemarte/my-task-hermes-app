@@ -19,7 +19,7 @@ type TaskFormState = {
   priority: TaskPriority;
 };
 
-const STORAGE_KEY = "my-task-hermes-app:tasks";
+const STORAGE_KEY = "my-task-hermes-app:tasks:prospecting-2026-05-04";
 
 const columns: Array<{
   status: TaskStatus;
@@ -36,6 +36,79 @@ const priorityStyles: Record<TaskPriority, string> = {
   Medium: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
   High: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
 };
+
+const prospectPipelineTasks: Task[] = [
+  {
+    id: "prospect-1",
+    title: "Dott.sa Demaria Daniela",
+    description: "Categoria/Città: Ambulatorio veterinario · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8275113,8.1777234\nTelefono: +39 328 3068421\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni telefoniche perse da ricerche urgenti “veterinario vicino a me” e poca fiducia senza pagina servizi\nCompetitor con sito: Ordine Veterinari Asti | (https://www.veterinariasti.it/); Ordine di Asti - fnovi (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Dott.sa Demaria Daniela cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.500 setup + €129/mese\nDemo: https://client-1-dott-sa-demaria-daniela.vercel.app\nRepo: https://github.com/vindepemarte/client-1-dott-sa-demaria-daniela",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-2",
+    title: "Assaggio d'India",
+    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9049108,8.2188873\nTelefono: +39 0141 272386\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Assaggio d'India cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-assaggio-dindia.vercel.app\nRepo: https://github.com/vindepemarte/client-1-assaggio-dindia",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-3",
+    title: "Francese",
+    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8993655,8.2035828\nTelefono: +39 0141 592321\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Francese cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-francese.vercel.app\nRepo: https://github.com/vindepemarte/client-1-francese",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-4",
+    title: "Il forno di Vaglierano",
+    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8781984,8.1262841\nTelefono: +39 0141200282\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: panetteria Asti - Dolce Forno (https://dolcefornoasti.it/); Al Dolce Ci Penso Io - Pasticceria Asti (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Il forno di Vaglierano cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-il-forno-di-vaglierano.vercel.app\nRepo: https://github.com/vindepemarte/client-1-il-forno-di-vaglierano",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-5",
+    title: "Perfec7 Coaching Asti",
+    description: "Categoria/Città: Palestra / coaching · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.902135,8.2091927\nTelefono: +393332002067\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. lead persi per prova gratuita, programmi e richieste WhatsApp fuori orario\nCompetitor con sito: Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale); Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Perfec7 Coaching Asti cercando attività locali a Asti: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-perfec7-coaching-asti.vercel.app\nRepo: https://github.com/vindepemarte/client-1-perfec7-coaching-asti",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-6",
+    title: "El pan d'na volta",
+    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3902165,7.5476531\nTelefono: +39 0171 693035\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato El pan d'na volta cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-el-pan-dna-volta.vercel.app\nRepo: https://github.com/vindepemarte/client-1-el-pan-dna-volta",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-7",
+    title: "L'Angolo del Pane Panetteria e Alimentari",
+    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.4942466,7.5449612\nTelefono: +39 339 6811887\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato L'Angolo del Pane Panetteria e Alimentari cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €900 setup + €79/mese\nDemo: https://client-1-langolo-del-pane-panetteri.vercel.app\nRepo: https://github.com/vindepemarte/client-1-langolo-del-pane-panetteria-e-alimentari",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-8",
+    title: "Trattoria dei Ronchi",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.433995,7.5898115\nTelefono: +39 0171 43287\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Trattoria dei Ronchi cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-trattoria-dei-ronchi.vercel.app\nRepo: https://github.com/vindepemarte/client-1-trattoria-dei-ronchi",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-9",
+    title: "Pizzeria Il Portico",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3786351,7.5364142\nTelefono: +39 0171 697772\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Pizzeria Il Portico cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-pizzeria-il-portico.vercel.app\nRepo: https://github.com/vindepemarte/client-1-pizzeria-il-portico",
+    priority: "High",
+    status: "done",
+  },
+  {
+    id: "prospect-10",
+    title: "Cielo Azzurro",
+    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3793215,7.5371446\nTelefono: +39 0171 67345\nPerché selezionato: telefono presente, nessun sito ufficiale evidente; opportunità locale mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con sito: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho trovato Cielo Azzurro cercando attività locali a Cuneo: avete presenza su mappe/portali, ma non ho trovato un sito ufficiale semplice da aprire da smartphone. Ho preparato una demo non ufficiale per mostrarvi come potreste ricevere più richieste dirette. Posso inviarvela?\nPrezzo raccomandato: €1.200 setup + €99/mese\nDemo: https://client-1-cielo-azzurro.vercel.app\nRepo: https://github.com/vindepemarte/client-1-cielo-azzurro",
+    priority: "High",
+    status: "done",
+  }
+];
 
 const seededTasks: Task[] = [
   {
@@ -189,6 +262,16 @@ export default function KanbanBoard() {
     writeTasks(tasks.filter((task) => task.id !== taskId));
   };
 
+  const loadProspectPipeline = () => {
+    const existingIds = new Set(tasks.map((task) => task.id));
+    const missingProspects = prospectPipelineTasks.filter((task) => !existingIds.has(task.id));
+    writeTasks([...missingProspects, ...tasks]);
+  };
+
+  const resetProspectPipeline = () => {
+    writeTasks(prospectPipelineTasks);
+  };
+
   return (
     <main className="min-h-screen px-4 py-6 text-slate-900 sm:px-6 lg:px-10 lg:py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -200,12 +283,28 @@ export default function KanbanBoard() {
                 my-task-hermes-app
               </div>
               <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Keep the board light, clear, and moving.
+                Pipeline prospect locali Italia
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                A local-first kanban board for planning work, tracking momentum,
-                and closing tasks without backend overhead.
+                Board aggiornata con i 10 prospect Asti/Cuneo: ricerca, demo Vercel, repo GitHub, pitch e prezzi raccomandati. Usa i pulsanti sotto per caricare o resettare la pipeline anche se il browser aveva vecchio localStorage.
               </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={loadProspectPipeline}
+                className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Carica pipeline prospect
+              </button>
+              <button
+                type="button"
+                onClick={resetProspectPipeline}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+              >
+                Reset demo prospect
+              </button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[28rem]">
@@ -362,7 +461,7 @@ export default function KanbanBoard() {
                             </button>
                           </div>
 
-                          <p className="mt-3 text-sm leading-6 text-slate-600">
+                          <p className="mt-3 whitespace-pre-line break-words text-sm leading-6 text-slate-600">
                             {task.description}
                           </p>
 
