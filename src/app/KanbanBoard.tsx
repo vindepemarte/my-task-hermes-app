@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { AppState, Idea, Inspiration, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
+import type { AppState, ClientRecord, ContentItem, Idea, Inspiration, LexaSuggestion, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
 
 type TabKey = "overview" | "tasks" | "clients" | "content" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
 
@@ -67,6 +67,11 @@ const defaultState: AppState = {
   logs: [],
   inspirations: [],
   ideas: [],
+  clients: [],
+  clientProjects: [],
+  contentItems: [],
+  lexaSuggestions: [],
+  dailyJournals: [],
 };
 
 const lexaModes = [
@@ -119,6 +124,11 @@ function loadLocalState(): AppState {
       logs: parsed.logs ?? [],
       inspirations: parsed.inspirations ?? [],
       ideas: parsed.ideas ?? [],
+      clients: parsed.clients ?? [],
+      clientProjects: parsed.clientProjects ?? [],
+      contentItems: parsed.contentItems ?? [],
+      lexaSuggestions: parsed.lexaSuggestions ?? [],
+      dailyJournals: parsed.dailyJournals ?? [],
     };
   } catch {
     return defaultState;
@@ -285,19 +295,29 @@ export default function KanbanBoard() {
   }, [analytics.avgEnergy, state.logs, state.tasks]);
 
   const clientMap = useMemo(() => {
-    const clients = ["ABC Vetrate Panoramiche", "ProHappyA", "Catalin"];
-    return clients.map((client) => ({
+    const structuredClients = state.clients.map((client) => ({
+      client: client.name,
+      record: client,
+      projects: state.clientProjects.filter((project) => project.clientId === client.id),
+      tasks: state.tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(client.name.toLowerCase())),
+      logs: state.logs.filter((log) => log.note.toLowerCase().includes(client.name.toLowerCase())),
+    }));
+    if (structuredClients.length) return structuredClients;
+    const fallbackClients = ["ABC Vetrate Panoramiche", "ProHappyA", "Catalin"];
+    return fallbackClients.map((client) => ({
       client,
+      record: null as ClientRecord | null,
+      projects: [],
       tasks: state.tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(client.toLowerCase())),
       logs: state.logs.filter((log) => log.note.toLowerCase().includes(client.toLowerCase())),
     }));
-  }, [state.logs, state.tasks]);
+  }, [state.clientProjects, state.clients, state.logs, state.tasks]);
 
   const contentPipeline = useMemo(() => {
     const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(`${task.title} ${task.description}`));
     const contentLogs = state.logs.filter((log) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(log.note));
-    return { contentTasks, contentLogs, inspirations: state.inspirations.slice(0, 6) };
-  }, [state.inspirations, state.logs, state.tasks]);
+    return { items: state.contentItems, contentTasks, contentLogs, inspirations: state.inspirations.slice(0, 6) };
+  }, [state.contentItems, state.inspirations, state.logs, state.tasks]);
 
   const projectMap = useMemo(() => {
     const projects = state.ideas.filter((idea) => idea.title.startsWith("Project:"));
@@ -458,13 +478,18 @@ export default function KanbanBoard() {
                 <div className="rounded-3xl bg-emerald-50 p-5 text-emerald-950 ring-1 ring-emerald-100">
                   <p className="font-black">Done journal</p>
                   <ul className="mt-2 space-y-2 text-sm leading-6">
-                    {commandCenter.done.length === 0 && <li>No completions yet today.</li>}
-                    {commandCenter.done.map((task) => <li key={task.id}>✓ {task.title}</li>)}
+                    {state.dailyJournals[0]?.doneItems.length ? state.dailyJournals[0].doneItems.map((item) => <li key={item}>✓ {item}</li>) : null}
+                    {!state.dailyJournals[0]?.doneItems.length && commandCenter.done.length === 0 && <li>No completions yet today.</li>}
+                    {!state.dailyJournals[0]?.doneItems.length && commandCenter.done.map((task) => <li key={task.id}>✓ {task.title}</li>)}
                   </ul>
+                  {state.dailyJournals[0]?.notes && <p className="mt-3 text-sm leading-6">{state.dailyJournals[0].notes}</p>}
                 </div>
                 <div className="rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
                   <p className="font-black">Lexa proactivity</p>
                   <p className="mt-2 text-sm leading-6">Morning plan, pre-call briefs and evening Done Journal are active. Keep Telegram updates short; Lexa structures the rest.</p>
+                  <div className="mt-4 space-y-2">
+                    {state.lexaSuggestions.slice(0, 2).map((suggestion) => <SuggestionMini key={suggestion.id} suggestion={suggestion} />)}
+                  </div>
                 </div>
               </div>
             </Panel>
@@ -513,9 +538,17 @@ export default function KanbanBoard() {
         {activeTab === "clients" && (
           <section className="grid gap-6 lg:grid-cols-3">
             {clientMap.map((client) => (
-              <Panel key={client.client} title={client.client} subtitle={`${client.tasks.length} tasks • ${client.logs.length} logs`}>
+              <Panel key={client.client} title={client.client} subtitle={`${client.projects.length} projects • ${client.tasks.length} tasks • ${client.logs.length} logs`}>
                 <div className="space-y-3">
-                  {client.tasks.length === 0 && client.logs.length === 0 && <EmptyState text="No tracked activity yet. Mention this client in Telegram and Lexa will connect the dots." />}
+                  {client.record && (
+                    <article className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                      <div className="flex flex-wrap gap-2"><span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{client.record.status}</span><span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{client.record.stage}</span></div>
+                      {client.record.notes && <p className="mt-3">{client.record.notes}</p>}
+                      {client.record.nextAction && <p className="mt-3 font-bold text-slate-950">Next: {client.record.nextAction}</p>}
+                    </article>
+                  )}
+                  {client.projects.map((project) => <ProjectMini key={project.id} project={project} />)}
+                  {client.tasks.length === 0 && client.logs.length === 0 && client.projects.length === 0 && <EmptyState text="No tracked activity yet. Mention this client in Telegram and Lexa will connect the dots." />}
                   {client.tasks.slice(0, 5).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
                   {client.logs.slice(0, 3).map((log) => <p key={log.id} className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
                 </div>
@@ -528,7 +561,8 @@ export default function KanbanBoard() {
           <section className="grid gap-6 lg:grid-cols-[1fr_.85fr]">
             <Panel title="Content pipeline" subtitle="Iacovici.it, vindepemarte and reusable assets.">
               <div className="grid gap-4 md:grid-cols-2">
-                {contentPipeline.contentTasks.length === 0 && <EmptyState text="No content tasks yet. Tell Lexa when a video is scripted, recorded, edited or published." />}
+                {contentPipeline.items.length === 0 && contentPipeline.contentTasks.length === 0 && <EmptyState text="No content tasks yet. Tell Lexa when a video is scripted, recorded, edited or published." />}
+                {contentPipeline.items.map((item) => <ContentMini key={item.id} item={item} />)}
                 {contentPipeline.contentTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
               </div>
             </Panel>
@@ -686,6 +720,45 @@ function TaskMini({ task, onMove }: { task: Task; onMove: () => void }) {
       </div>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
       <button onClick={onMove} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">{task.status}</button>
+    </article>
+  );
+}
+
+function ProjectMini({ project }: { project: { title: string; status: string; notes: string; deadline: string; valueEstimate: number } }) {
+  return (
+    <article className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-indigo-950">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-black">{project.title}</h3>
+        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black uppercase text-indigo-700">{project.status}</span>
+      </div>
+      {project.notes && <p className="mt-2 text-sm leading-6">{project.notes}</p>}
+      {(project.deadline || project.valueEstimate > 0) && <p className="mt-3 text-xs font-black uppercase tracking-wide opacity-70">{project.deadline || "No deadline"} {project.valueEstimate > 0 ? `• €${project.valueEstimate}` : ""}</p>}
+    </article>
+  );
+}
+
+function ContentMini({ item }: { item: ContentItem }) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-fuchsia-500">{item.brand} • {item.platform}</p>
+          <h3 className="mt-2 font-black text-slate-950">{item.title}</h3>
+        </div>
+        <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-xs font-black uppercase text-fuchsia-700">{item.status}</span>
+      </div>
+      {item.hook && <p className="mt-3 text-sm font-bold leading-6 text-slate-800">Hook: {item.hook}</p>}
+      {item.scriptNotes && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.scriptNotes}</p>}
+      {(item.plannedDate || item.publishUrl) && <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{item.plannedDate || "published"} {item.publishUrl ? "• live link saved" : ""}</p>}
+    </article>
+  );
+}
+
+function SuggestionMini({ suggestion }: { suggestion: LexaSuggestion }) {
+  return (
+    <article className="rounded-2xl bg-white/70 p-3 text-sm leading-6 ring-1 ring-indigo-100">
+      <div className="flex items-start justify-between gap-2"><p className="font-black">{suggestion.title}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${priorityStyle[suggestion.priority]}`}>{suggestion.priority}</span></div>
+      {suggestion.body && <p className="mt-1 text-indigo-900/80">{suggestion.body}</p>}
     </article>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorizedHeader } from "@/lib/lifeOsAuth";
-import { createIdea, createInspiration, createTask, createTimeLog, getLifeOsState, updateTaskStatus } from "@/lib/lifeOsDb";
+import { createClient, createContentItem, createIdea, createInspiration, createLexaSuggestion, createTask, createTimeLog, getLifeOsState, updateTaskStatus, upsertDailyJournal } from "@/lib/lifeOsDb";
 
 export const runtime = "nodejs";
 
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
     if (body.type === "timeLog") return NextResponse.json(await createTimeLog(body.data));
     if (body.type === "inspiration") return NextResponse.json(await createInspiration(body.data));
     if (body.type === "idea") return NextResponse.json(await createIdea(body.data));
+    if (body.type === "client") return NextResponse.json(await createClient(body.data));
+    if (body.type === "contentItem") return NextResponse.json(await createContentItem(body.data));
+    if (body.type === "lexaSuggestion") return NextResponse.json(await createLexaSuggestion(body.data));
+    if (body.type === "dailyJournal") return NextResponse.json(await upsertDailyJournal(body.data));
     return NextResponse.json({ error: "Unsupported Life OS entry type" }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to save Life OS entry" }, { status: 500 });
