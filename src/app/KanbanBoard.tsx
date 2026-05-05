@@ -1,9 +1,19 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
+type TabKey = "overview" | "tasks" | "analytics" | "inspiration" | "ideas" | "modes";
 type TaskStatus = "todo" | "in-progress" | "done";
 type TaskPriority = "Low" | "Medium" | "High";
+type TimeCategory =
+  | "Produzione"
+  | "Studio/Ricerca"
+  | "Business/Admin"
+  | "Salute/Energia"
+  | "Relazioni/Casa"
+  | "Procrastinazione/Scrolling"
+  | "Riposo"
+  | "Altro";
 
 type Task = {
   id: string;
@@ -13,558 +23,540 @@ type Task = {
   status: TaskStatus;
 };
 
-type TaskFormState = {
-  title: string;
-  description: string;
-  priority: TaskPriority;
+type TimeLog = {
+  id: string;
+  date: string;
+  slot: string;
+  category: TimeCategory;
+  hours: number;
+  note: string;
+  energy: number;
 };
 
-const STORAGE_KEY = "my-task-hermes-app:tasks:prospecting-2026-05-04-v20";
+type Inspiration = {
+  id: string;
+  url: string;
+  reason: string;
+  pattern: string;
+  platform: "Instagram" | "YouTube" | "TikTok" | "X/Twitter" | "Other";
+  status: "saved" | "analyzed" | "adapted";
+};
 
-const columns: Array<{
-  status: TaskStatus;
-  label: string;
-  accent: string;
-}> = [
-  { status: "todo", label: "Todo", accent: "bg-amber-400" },
-  { status: "in-progress", label: "In Progress", accent: "bg-sky-500" },
-  { status: "done", label: "Done", accent: "bg-emerald-500" },
+type Idea = {
+  id: string;
+  title: string;
+  note: string;
+  score: number;
+  status: "raw" | "research" | "build" | "paused";
+};
+
+const STORAGE_KEY = "iacovici-life-os:v1";
+
+const categories: TimeCategory[] = [
+  "Produzione",
+  "Studio/Ricerca",
+  "Business/Admin",
+  "Salute/Energia",
+  "Relazioni/Casa",
+  "Procrastinazione/Scrolling",
+  "Riposo",
+  "Altro",
 ];
 
-const priorityStyles: Record<TaskPriority, string> = {
+const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
+  { key: "overview", label: "Overview", hint: "oggi + settimana" },
+  { key: "tasks", label: "Tasks", hint: "execution board" },
+  { key: "analytics", label: "Analytics", hint: "time & actions" },
+  { key: "inspiration", label: "Inspiration", hint: "saved videos" },
+  { key: "ideas", label: "Ideas", hint: "business lab" },
+  { key: "modes", label: "Lexa Modes", hint: "prompts" },
+];
+
+const seededTasks: Task[] = [
+  {
+    id: "task-content-week",
+    title: "Record Iacovici.it AI Week 01",
+    description:
+      "Batch record 7 talking-head videos from the prepared scripts. Keep each video 35–55 seconds, no screen recording, leave room for captions and animated cards.",
+    priority: "High",
+    status: "todo",
+  },
+  {
+    id: "task-video-pipeline",
+    title: "Run video-use + hyperframes pipeline",
+    description:
+      "Process the recorded videos on macOS: auto cuts, captions, camera movement, animated keywords, exports for YouTube Shorts and Instagram Reels.",
+    priority: "High",
+    status: "todo",
+  },
+  {
+    id: "task-posting",
+    title: "Publish or schedule daily Shorts/Reels",
+    description:
+      "Use Lexa captions/titles/hashtags. YouTube can be automated later; Instagram/TikTok can stay manual until API setup is ready.",
+    priority: "High",
+    status: "todo",
+  },
+  {
+    id: "task-brand-system",
+    title: "Define Iacovici.it brand system",
+    description:
+      "Clarify promise, audience, visual rules, recurring series, free community, future course offer and tone of voice.",
+    priority: "Medium",
+    status: "in-progress",
+  },
+];
+
+const seededLogs: TimeLog[] = [
+  {
+    id: "seed-log-1",
+    date: new Date().toISOString().slice(0, 10),
+    slot: "09:00–11:00",
+    category: "Produzione",
+    hours: 2,
+    note: "Example: record one AI video or build a concrete asset.",
+    energy: 7,
+  },
+];
+
+const seededInspirations: Inspiration[] = [
+  {
+    id: "seed-inspo-1",
+    url: "https://youtube.com/shorts/example",
+    reason: "Strong hook + fast visual rhythm. Replace this with a real saved video.",
+    pattern: "Shock hook → 3 quick points → soft CTA",
+    platform: "YouTube",
+    status: "saved",
+  },
+];
+
+const seededIdeas: Idea[] = [
+  {
+    id: "seed-idea-1",
+    title: "Iacovici.it AI community",
+    note:
+      "Teach practical AI workflows in Italian and English, build trust with daily content, then launch a deeper 10–15 video pro course/community.",
+    score: 9,
+    status: "research",
+  },
+];
+
+const lexaModes = [
+  {
+    name: "Start my day",
+    prompt: "Lexa, buongiorno / start my day",
+    result: "Morning plan: 1 money task, 1 content task, 1 energy task, first tiny action.",
+  },
+  {
+    name: "Content mode",
+    prompt: "Lexa, content mode",
+    result: "Trend research, hooks, scripts, captions, titles, hashtags and publishing plan.",
+  },
+  {
+    name: "Anti-scroll rescue",
+    prompt: "Lexa, sto scappando / I’m scrolling",
+    result: "2-minute reset, smallest next task, timer, and accountability check-in.",
+  },
+  {
+    name: "Business partner",
+    prompt: "Lexa, business partner mode: [idea]",
+    result: "Monetization, MVP, effort, risk, next step, and whether to build/ignore it.",
+  },
+  {
+    name: "Evening review",
+    prompt: "Lexa, vado a dormire / I’m going to sleep",
+    result: "What happened, what was avoided, what to improve tomorrow, no guilt.",
+  },
+  {
+    name: "Deep talk",
+    prompt: "Lexa, deep talk",
+    result: "A focused conversation about fear, confidence, avoidance, identity and direction.",
+  },
+];
+
+const defaultState = {
+  tasks: seededTasks,
+  logs: seededLogs,
+  inspirations: seededInspirations,
+  ideas: seededIdeas,
+};
+
+type AppState = typeof defaultState;
+
+function loadState(): AppState {
+  if (typeof window === "undefined") return defaultState;
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved) return defaultState;
+    const parsed = JSON.parse(saved) as Partial<AppState>;
+    return {
+      tasks: parsed.tasks?.length ? parsed.tasks : seededTasks,
+      logs: parsed.logs?.length ? parsed.logs : seededLogs,
+      inspirations: parsed.inspirations?.length ? parsed.inspirations : seededInspirations,
+      ideas: parsed.ideas?.length ? parsed.ideas : seededIdeas,
+    };
+  } catch {
+    return defaultState;
+  }
+}
+
+function uid(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+const priorityStyle: Record<TaskPriority, string> = {
   Low: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
   Medium: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
   High: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
 };
 
-const prospectPipelineTasks: Task[] = [
-  {
-    id: "prospect-1",
-    title: "Dott.sa Demaria Daniela",
-    description: "Categoria/Città: Ambulatorio veterinario · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8275113,8.1777234\nTelefono: +39 328 3068421\nSito preparato: https://client-1-dott-sa-demaria-daniela.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-dott-sa-demaria-daniela\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni telefoniche perse da ricerche urgenti “veterinario vicino a me” e poca fiducia senza pagina servizi\nCompetitor con presenza web: Ordine Veterinari Asti | (https://www.veterinariasti.it/); Ordine di Asti - fnovi (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Dott.sa Demaria Daniela: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.500 setup + €129/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-2",
-    title: "Assaggio d'India",
-    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9049108,8.2188873\nTelefono: +39 0141 272386\nSito preparato: https://client-1-assaggio-dindia.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-assaggio-dindia\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Assaggio d'India: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-3",
-    title: "Francese",
-    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8993655,8.2035828\nTelefono: +39 0141 592321\nSito preparato: https://client-1-francese.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-francese\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Home - L'Antico Casale - Ristorante Asti (https://anticocasaleasti.it/); La Regibussa Hotel e Ristorante Asti (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Francese: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-4",
-    title: "Il forno di Vaglierano",
-    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8781984,8.1262841\nTelefono: +39 0141200282\nSito preparato: https://client-1-il-forno-di-vaglierano.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-il-forno-di-vaglierano\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: panetteria Asti - Dolce Forno (https://dolcefornoasti.it/); Al Dolce Ci Penso Io - Pasticceria Asti (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Il forno di Vaglierano: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-5",
-    title: "Perfec7 Coaching Asti",
-    description: "Categoria/Città: Palestra / coaching · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.902135,8.2091927\nTelefono: +393332002067\nSito preparato: https://client-1-perfec7-coaching-asti.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-perfec7-coaching-asti\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. lead persi per prova gratuita, programmi e richieste WhatsApp fuori orario\nCompetitor con presenza web: Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale); Competitor locale con presenza web a Asti (https://www.google.com/search?q=palestra%20personal%20training%20Asti%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Perfec7 Coaching Asti: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-6",
-    title: "El pan d'na volta",
-    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3902165,7.5476531\nTelefono: +39 0171 693035\nSito preparato: https://client-1-el-pan-dna-volta.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-el-pan-dna-volta\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per El pan d'na volta: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-7",
-    title: "L'Angolo del Pane Panetteria e Alimentari",
-    description: "Categoria/Città: Panetteria / pasticceria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.4942466,7.5449612\nTelefono: +39 339 6811887\nSito preparato: https://client-1-langolo-del-pane-panetteri.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-langolo-del-pane-panetteria-e-alimentari\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da competitor con sito e scheda chiara\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=panetteria%20pasticceria%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per L'Angolo del Pane Panetteria e Alimentari: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-8",
-    title: "Trattoria dei Ronchi",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.433995,7.5898115\nTelefono: +39 0171 43287\nSito preparato: https://client-1-trattoria-dei-ronchi.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-trattoria-dei-ronchi\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Trattoria dei Ronchi: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-9",
-    title: "Pizzeria Il Portico",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3786351,7.5364142\nTelefono: +39 0171 697772\nSito preparato: https://client-1-pizzeria-il-portico.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-pizzeria-il-portico\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Pizzeria Il Portico: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-10",
-    title: "Cielo Azzurro",
-    description: "Categoria/Città: Ristorante / trattoria · Cuneo\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.3793215,7.5371446\nTelefono: +39 0171 67345\nSito preparato: https://client-1-cielo-azzurro.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-cielo-azzurro\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e ordini persi quando turisti/locali cercano menu, orari e WhatsApp da mobile\nCompetitor con presenza web: Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale); Competitor locale con presenza web a Cuneo (https://www.google.com/search?q=ristorante%20Cuneo%20sito%20ufficiale)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Cielo Azzurro: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-11",
-    title: "Vanity",
-    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9035325,8.2155388\nTelefono: +39 324 536 9335\nSito preparato: https://client-1-vanity.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-vanity\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Vanity: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-12",
-    title: "Sun&Beauty",
-    description: "Categoria/Città: Centro estetico · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9149862,8.2264203\nTelefono: +39 0141 273 323\nSito preparato: https://client-1-sun-beauty.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-sun-beauty\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. richieste perse da persone che confrontano trattamenti, prezzi indicativi e disponibilità prima di chiamare\nCompetitor con presenza web: Centro estetico competitor (https://www.google.com/search?q=centro+estetico+sito+ufficiale+Piemonte); Beauty salon online (https://www.google.com/search?q=centro+benessere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Sun&Beauty: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.100 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-13",
-    title: "DentalBio - Asti",
-    description: "Categoria/Città: Studio dentistico · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9036923,8.2169134\nTelefono: +39 0141 532616\nSito preparato: https://client-1-dentalbio-asti.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-dentalbio-asti\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. nuovi pazienti persi quando cercano uno studio vicino e trovano solo directory senza una pagina autorevole\nCompetitor con presenza web: Studio dentistico competitor (https://www.google.com/search?q=studio+dentistico+sito+ufficiale+Piemonte); Dentista con presenza web (https://www.google.com/search?q=dentista+sito+ufficiale+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per DentalBio - Asti: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.800 setup + €149/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-14",
-    title: "Fiandra Patrizia",
-    description: "Categoria/Città: Ambulatorio veterinario · Torino\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=45.0809023,7.6424922\nTelefono: +39 011 7493472\nSito preparato: https://client-1-fiandra-patrizia.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-fiandra-patrizia\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. contatti persi da ricerche urgenti “veterinario vicino a me” quando mancano servizi, orari e fiducia online\nCompetitor con presenza web: Ordine Veterinari Asti (https://www.veterinariasti.it/); FNOVI Asti (https://fnovi.it/ordini-provinciali/Asti?id_ordine_prov=7)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Fiandra Patrizia: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.500 setup + €129/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-15",
-    title: "Club Trapani",
-    description: "Categoria/Città: Palestra / coaching · Torino\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=45.0720394,7.6403618\nTelefono: +39 011 33 7109\nSito preparato: https://client-1-club-trapani.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-club-trapani\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. lead persi per prove gratuite, programmi e richieste fuori orario non raccolte in modo ordinato\nCompetitor con presenza web: Palestra area locale (https://www.google.com/search?q=palestra+personal+training+sito+ufficiale); Fitness competitor online (https://www.google.com/search?q=fitness+coach+sito+ufficiale+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Club Trapani: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-16",
-    title: "La Panetteria di Santina",
-    description: "Categoria/Città: Panetteria / pasticceria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8994823,8.1944089\nTelefono: +39 340 569 2096\nSito preparato: https://client-1-la-panetteria-di-santina.vercel.app\nRepo GitHub: https://github.com/vindepemarte/client-1-la-panetteria-di-santina\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. ordini per torte, catering e festività intercettati oggi da attività con sito e scheda più chiara\nCompetitor con presenza web: Dolce Forno Asti (https://dolcefornoasti.it/); Al Dolce Ci Penso Io (https://aldolcecipensoio.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per La Panetteria di Santina: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €900 setup + €79/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-17",
-    title: "Tutti Qui",
-    description: "Categoria/Città: Ristorante / trattoria · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8962582,8.2069474\nTelefono: +39 0141 1766002\nSito preparato: https://vindepemarte.github.io/client-1-tutti-qui/\nRepo GitHub: https://github.com/vindepemarte/client-1-tutti-qui\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. prenotazioni e richieste perse quando le persone cercano menu, orari e contatto rapido dal telefono\nCompetitor con presenza web: L’Antico Casale Asti (https://anticocasaleasti.it/); La Regibussa (https://www.laregibussa.it/)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Tutti Qui: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.200 setup + €99/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-18",
-    title: "Il bello delle donne",
-    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9034018,8.2157853\nTelefono: +39 0141 556285\nSito preparato: https://vindepemarte.github.io/client-1-il-bello-delle-donne/\nRepo GitHub: https://github.com/vindepemarte/client-1-il-bello-delle-donne\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Il bello delle donne: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-19",
-    title: "Emanuela Acconciature",
-    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.9015957,8.1996743\nTelefono: +39 0141 592 173\nSito preparato: https://vindepemarte.github.io/client-1-emanuela-acconciature/\nRepo GitHub: https://github.com/vindepemarte/client-1-emanuela-acconciature\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Emanuela Acconciature: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  },
-  {
-    id: "prospect-20",
-    title: "Immagine Donna",
-    description: "Categoria/Città: Parrucchiere / salone · Asti\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=44.8586196,8.1594969\nTelefono: +39 338 4494318\nSito preparato: https://vindepemarte.github.io/client-1-immagine-donna/\nRepo GitHub: https://github.com/vindepemarte/client-1-immagine-donna\nPerché selezionato: telefono presente, nessun sito ufficiale evidente nelle fonti OSM; opportunità mobile-first. appuntamenti persi quando clienti cercano foto, servizi e disponibilità ma trovano solo schede o social non aggiornati\nCompetitor con presenza web: Salone competitor online (https://www.google.com/search?q=parrucchiere+sito+ufficiale+Piemonte); Parrucchiere con booking online (https://www.google.com/search?q=salone+parrucchiere+prenotazione+online+Piemonte)\nScript primo messaggio: Buongiorno, sono Alexandru. Ho preparato una proposta concreta per Immagine Donna: una pagina mobile-first curata, con contatto rapido, mappa, servizi e richiesta diretta. Posso inviarvi il link per farvela vedere?\nPrezzo raccomandato: €1.000 setup + €89/mese\nFooter applicato: Tutti i diritti riservati, sito creato da Alexandru Eugen Iacovici trading as Iacovici.it",
-    priority: "High",
-    status: "done",
-  }
-];
-
-const seededTasks: Task[] = prospectPipelineTasks;
-
-const emptyFormState: TaskFormState = {
-  title: "",
-  description: "",
-  priority: "Medium",
-};
-
-function isTaskPriority(value: unknown): value is TaskPriority {
-  return value === "Low" || value === "Medium" || value === "High";
-}
-
-function isTaskStatus(value: unknown): value is TaskStatus {
-  return value === "todo" || value === "in-progress" || value === "done";
-}
-
-function isTask(value: unknown): value is Task {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.description === "string" &&
-    isTaskPriority(candidate.priority) &&
-    isTaskStatus(candidate.status)
-  );
-}
-
-function readStoredTasks(): Task[] {
-  if (typeof window === "undefined") {
-    return seededTasks;
-  }
-
-  try {
-    const rawTasks = localStorage.getItem(STORAGE_KEY);
-    if (!rawTasks) {
-      return seededTasks;
-    }
-
-    const parsedTasks: unknown = JSON.parse(rawTasks);
-    return Array.isArray(parsedTasks) && parsedTasks.every(isTask)
-      ? parsedTasks
-      : seededTasks;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return seededTasks;
-  }
-}
-
 export default function KanbanBoard() {
-  const [formState, setFormState] = useState<TaskFormState>(emptyFormState);
-  const [tasks, setTasks] = useState<Task[]>(() => readStoredTasks());
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [state, setState] = useState<AppState>(() => loadState());
+
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "Medium" as TaskPriority });
+  const [logForm, setLogForm] = useState({
+    slot: "",
+    category: "Produzione" as TimeCategory,
+    hours: "2",
+    note: "",
+    energy: "7",
+  });
+  const [inspoForm, setInspoForm] = useState({ url: "", reason: "", pattern: "", platform: "Instagram" as Inspiration["platform"] });
+  const [ideaForm, setIdeaForm] = useState({ title: "", note: "", score: "7" });
 
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) {
-        setTasks(readStoredTasks());
-      }
-    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
-    window.addEventListener("storage", onStorage);
+  const analytics = useMemo(() => {
+    const totals = categories.map((category) => ({
+      category,
+      hours: state.logs.filter((log) => log.category === category).reduce((sum, log) => sum + Number(log.hours || 0), 0),
+    }));
+    const totalHours = totals.reduce((sum, item) => sum + item.hours, 0);
+    const productionHours = totals
+      .filter((item) => ["Produzione", "Studio/Ricerca", "Business/Admin"].includes(item.category))
+      .reduce((sum, item) => sum + item.hours, 0);
+    const scrollingHours = totals.find((item) => item.category === "Procrastinazione/Scrolling")?.hours ?? 0;
+    const avgEnergy = state.logs.length
+      ? state.logs.reduce((sum, log) => sum + Number(log.energy || 0), 0) / state.logs.length
+      : 0;
+    return { totals, totalHours, productionHours, scrollingHours, avgEnergy };
+  }, [state.logs]);
 
-    return () => {
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  const writeTasks = (nextTasks: Task[]) => {
-    setTasks(nextTasks);
-
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTasks));
-    } catch {
-      // The board should keep working even if browser storage is unavailable.
-    }
-  };
-
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.status === "done").length;
-  const tasksByColumn = columns.map((column) => ({
-    ...column,
-    tasks: tasks.filter((task) => task.status === column.status),
-  }));
-
-  const createTask = (event: FormEvent<HTMLFormElement>) => {
+  function addTask(event: FormEvent) {
     event.preventDefault();
+    if (!taskForm.title.trim()) return;
+    setState((current) => ({
+      ...current,
+      tasks: [
+        { id: uid("task"), title: taskForm.title.trim(), description: taskForm.description.trim(), priority: taskForm.priority, status: "todo" },
+        ...current.tasks,
+      ],
+    }));
+    setTaskForm({ title: "", description: "", priority: "Medium" });
+  }
 
-    const title = formState.title.trim();
-    const description = formState.description.trim();
+  function addTimeLog(event: FormEvent) {
+    event.preventDefault();
+    if (!logForm.note.trim()) return;
+    setState((current) => ({
+      ...current,
+      logs: [
+        {
+          id: uid("log"),
+          date: new Date().toISOString().slice(0, 10),
+          slot: logForm.slot.trim() || "manual entry",
+          category: logForm.category,
+          hours: Number(logForm.hours || 0),
+          note: logForm.note.trim(),
+          energy: Number(logForm.energy || 0),
+        },
+        ...current.logs,
+      ],
+    }));
+    setLogForm({ slot: "", category: "Produzione", hours: "2", note: "", energy: "7" });
+  }
 
-    if (!title || !description) {
-      return;
-    }
+  function addInspiration(event: FormEvent) {
+    event.preventDefault();
+    if (!inspoForm.url.trim()) return;
+    setState((current) => ({
+      ...current,
+      inspirations: [
+        { id: uid("inspo"), url: inspoForm.url.trim(), reason: inspoForm.reason.trim(), pattern: inspoForm.pattern.trim(), platform: inspoForm.platform, status: "saved" },
+        ...current.inspirations,
+      ],
+    }));
+    setInspoForm({ url: "", reason: "", pattern: "", platform: "Instagram" });
+  }
 
-    const nextTask: Task = {
-      id: crypto.randomUUID(),
-      title,
-      description,
-      priority: formState.priority,
-      status: "todo",
-    };
+  function addIdea(event: FormEvent) {
+    event.preventDefault();
+    if (!ideaForm.title.trim()) return;
+    setState((current) => ({
+      ...current,
+      ideas: [
+        { id: uid("idea"), title: ideaForm.title.trim(), note: ideaForm.note.trim(), score: Number(ideaForm.score || 0), status: "raw" },
+        ...current.ideas,
+      ],
+    }));
+    setIdeaForm({ title: "", note: "", score: "7" });
+  }
 
-    writeTasks([nextTask, ...tasks]);
-    setFormState(emptyFormState);
-  };
-
-  const moveTask = (taskId: string, direction: -1 | 1) => {
-    writeTasks(
-      tasks.map((task) => {
-        if (task.id !== taskId) {
-          return task;
-        }
-
-        const currentColumnIndex = columns.findIndex(
-          (column) => column.status === task.status,
-        );
-        const nextColumn = columns[currentColumnIndex + direction];
-
-        return nextColumn ? { ...task, status: nextColumn.status } : task;
-      }),
-    );
-  };
-
-  const deleteTask = (taskId: string) => {
-    writeTasks(tasks.filter((task) => task.id !== taskId));
-  };
-
-  const loadProspectPipeline = () => {
-    const existingIds = new Set(tasks.map((task) => task.id));
-    const missingProspects = prospectPipelineTasks.filter((task) => !existingIds.has(task.id));
-    writeTasks([...missingProspects, ...tasks]);
-  };
-
-  const resetProspectPipeline = () => {
-    writeTasks(prospectPipelineTasks);
-  };
+  function cycleTask(taskId: string) {
+    const next: Record<TaskStatus, TaskStatus> = { todo: "in-progress", "in-progress": "done", done: "todo" };
+    setState((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, status: next[task.status] } : task)),
+    }));
+  }
 
   return (
-    <main className="min-h-screen px-4 py-6 text-slate-900 sm:px-6 lg:px-10 lg:py-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <section className="glass-panel overflow-hidden rounded-[2rem] border border-white/60 p-6 sm:p-8">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-slate-50 uppercase">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                my-task-hermes-app
-              </div>
-              <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Pipeline 20 prospect locali Italia
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_34rem),linear-gradient(135deg,#f8fafc,#eef2ff)] text-slate-950">
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-2xl shadow-slate-200/80 backdrop-blur md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-sm font-black uppercase tracking-[0.3em] text-indigo-600">Iacovici.it Life OS</p>
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                Tasks, Analytics & Lexa accountability.
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                Board aggiornata con 20 prospect: ricerca, demo Vercel production-ready, repo GitHub, pitch e prezzi raccomandati. Le card includono link demo, fonti, telefono, proposta commerciale e footer legale richiesto.
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                A private local-first dashboard for execution, time tracking, saved content inspiration, business ideas and the exact prompts to activate Lexa modes.
               </p>
             </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={loadProspectPipeline}
-                className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Carica pipeline prospect
-              </button>
-              <button
-                type="button"
-                onClick={resetProspectPipeline}
-                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
-              >
-                Reset pipeline 20 prospect
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[28rem]">
-              <StatCard
-                label="Total tasks"
-                value={String(totalTasks)}
-                note="Across all columns"
-              />
-              <StatCard
-                label="Completed"
-                value={String(completedTasks)}
-                note="Tasks in Done"
-              />
-              <StatCard
-                label="Storage"
-                value="Synced"
-                note="Saved in this browser"
-              />
+            <div className="grid gap-3 sm:grid-cols-3 lg:w-[30rem]">
+              <Metric label="Tracked hours" value={`${analytics.totalHours.toFixed(1)}h`} />
+              <Metric label="Production" value={`${analytics.productionHours.toFixed(1)}h`} />
+              <Metric label="Scrolling" value={`${analytics.scrollingHours.toFixed(1)}h`} danger />
             </div>
           </div>
-        </section>
+        </header>
 
-        <section className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <aside className="glass-panel rounded-[2rem] border border-white/60 p-5 sm:p-6">
-            <div className="mb-5">
-              <p className="text-xs font-semibold tracking-[0.24em] text-slate-500 uppercase">
-                New task
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                Add work to the queue
-              </h2>
-            </div>
+        <nav className="grid gap-2 rounded-3xl border border-white/70 bg-white/80 p-2 shadow-lg shadow-slate-200/60 backdrop-blur sm:grid-cols-2 lg:grid-cols-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-2xl px-4 py-3 text-left transition ${
+                activeTab === tab.key ? "bg-slate-950 text-white shadow-xl shadow-slate-300" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <span className="block text-sm font-black">{tab.label}</span>
+              <span className="text-xs opacity-70">{tab.hint}</span>
+            </button>
+          ))}
+        </nav>
 
-            <form className="space-y-4" onSubmit={createTask}>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-700">
-                  Title
-                </span>
-                <input
-                  value={formState.title}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }))
-                  }
-                  placeholder="Prepare stakeholder update"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                  maxLength={80}
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-700">
-                  Description
-                </span>
-                <textarea
-                  value={formState.description}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  placeholder="Summarize what needs to happen next."
-                  rows={5}
-                  className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                  maxLength={220}
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-700">
-                  Priority
-                </span>
-                <select
-                  value={formState.priority}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      priority: event.target.value as TaskPriority,
-                    }))
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </label>
-
-              <button
-                type="submit"
-                className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300"
-              >
-                Add task to Todo
-              </button>
-            </form>
-          </aside>
-
-          <section className="grid gap-4 lg:grid-cols-3">
-            {tasksByColumn.map((column) => (
-              <section
-                key={column.status}
-                className="glass-panel rounded-[2rem] border border-white/60 p-4 sm:p-5"
-              >
-                <header className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className={`h-3 w-3 rounded-full ${column.accent}`} />
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-950">
-                        {column.label}
-                      </h2>
-                      <p className="text-sm text-slate-500">
-                        {column.tasks.length} task
-                        {column.tasks.length === 1 ? "" : "s"}
-                      </p>
+        {activeTab === "overview" && (
+          <section className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+            <Panel title="Today’s operating system" subtitle="Keep the day simple: money, content, energy.">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <ActionCard title="Money" body="One action that can create revenue, leads, offers or useful assets." />
+                <ActionCard title="Content" body="Record, edit, publish, analyze, or research one concrete piece." />
+                <ActionCard title="Energy" body="Walk, eat, clean, sleep, breathe. Low energy destroys execution." />
+              </div>
+              <div className="mt-6 rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
+                <p className="font-black">Cron accountability is active:</p>
+                <p className="mt-2 text-sm leading-6">
+                  Lexa asks every 2 hours from 09:00 to 21:00 what happened. If you answer late, summarize the full period and split it into 2-hour blocks here.
+                </p>
+              </div>
+            </Panel>
+            <Panel title="Weekly signal" subtitle="What Lexa should optimize every Sunday.">
+              <div className="space-y-3">
+                {analytics.totals.map((item) => (
+                  <div key={item.category}>
+                    <div className="flex items-center justify-between text-sm font-bold text-slate-700">
+                      <span>{item.category}</span>
+                      <span>{item.hours.toFixed(1)}h</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${analytics.totalHours ? Math.min(100, (item.hours / analytics.totalHours) * 100) : 0}%` }} />
                     </div>
                   </div>
-                </header>
-
-                <div className="space-y-3">
-                  {column.tasks.length > 0 ? (
-                    column.tasks.map((task) => {
-                      const columnIndex = columns.findIndex(
-                        (item) => item.status === column.status,
-                      );
-                      const canMoveLeft = columnIndex > 0;
-                      const canMoveRight = columnIndex < columns.length - 1;
-
-                      return (
-                        <article
-                          key={task.id}
-                          className="board-card rounded-[1.5rem] border border-slate-200/80 p-4 transition hover:-translate-y-0.5"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${priorityStyles[task.priority]}`}
-                              >
-                                {task.priority} priority
-                              </span>
-                              <h3 className="mt-3 text-base font-semibold text-slate-950">
-                                {task.title}
-                              </h3>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => deleteTask(task.id)}
-                              className="rounded-full border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                              aria-label={`Delete ${task.title}`}
-                            >
-                              Delete
-                            </button>
-                          </div>
-
-                          <p className="mt-3 whitespace-pre-line break-words text-sm leading-6 text-slate-600">
-                            {task.description}
-                          </p>
-
-                          <div className="mt-4 flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => moveTask(task.id, -1)}
-                              disabled={!canMoveLeft}
-                              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              ← Back
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveTask(task.id, 1)}
-                              disabled={!canMoveRight}
-                              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Next →
-                            </button>
-                          </div>
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/50 px-4 py-8 text-center text-sm leading-6 text-slate-500">
-                      No tasks here yet. Move work in or create a new task.
-                    </div>
-                  )}
-                </div>
-              </section>
-            ))}
+                ))}
+              </div>
+            </Panel>
           </section>
-        </section>
-      </div>
+        )}
+
+        {activeTab === "tasks" && (
+          <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+            <Panel title="Add task" subtitle="Execution only, not fantasy planning.">
+              <form onSubmit={addTask} className="space-y-3">
+                <Input value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} placeholder="Task title" />
+                <Textarea value={taskForm.description} onChange={(value) => setTaskForm({ ...taskForm, description: value })} placeholder="Why it matters / next step" />
+                <Select value={taskForm.priority} onChange={(value) => setTaskForm({ ...taskForm, priority: value as TaskPriority })} options={["Low", "Medium", "High"]} />
+                <button className="w-full rounded-2xl bg-slate-950 px-4 py-3 font-black text-white">Add task</button>
+              </form>
+            </Panel>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {(["todo", "in-progress", "done"] as TaskStatus[]).map((status) => (
+                <Panel key={status} title={status.replace("-", " ")} subtitle={`${state.tasks.filter((task) => task.status === status).length} items`}>
+                  <div className="space-y-3">
+                    {state.tasks.filter((task) => task.status === status).map((task) => (
+                      <article key={task.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-black text-slate-950">{task.title}</h3>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
+                        </div>
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
+                        <button onClick={() => cycleTask(task.id)} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">
+                          Move status
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </Panel>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "analytics" && (
+          <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+            <Panel title="Log time block" subtitle="Use this when you answer Lexa late or want manual tracking.">
+              <form onSubmit={addTimeLog} className="space-y-3">
+                <Input value={logForm.slot} onChange={(value) => setLogForm({ ...logForm, slot: value })} placeholder="Slot e.g. 09:00–11:00" />
+                <Select value={logForm.category} onChange={(value) => setLogForm({ ...logForm, category: value as TimeCategory })} options={categories} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input value={logForm.hours} onChange={(value) => setLogForm({ ...logForm, hours: value })} placeholder="Hours" />
+                  <Input value={logForm.energy} onChange={(value) => setLogForm({ ...logForm, energy: value })} placeholder="Energy 1–10" />
+                </div>
+                <Textarea value={logForm.note} onChange={(value) => setLogForm({ ...logForm, note: value })} placeholder="What happened?" />
+                <button className="w-full rounded-2xl bg-indigo-600 px-4 py-3 font-black text-white">Add time log</button>
+              </form>
+            </Panel>
+            <Panel title="Action analytics" subtitle={`Average energy: ${analytics.avgEnergy.toFixed(1)}/10`}>
+              <div className="grid gap-4 md:grid-cols-2">
+                {state.logs.map((log) => (
+                  <article key={log.id} className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <span>{log.date}</span><span>•</span><span>{log.slot}</span><span>•</span><span>{log.hours}h</span>
+                    </div>
+                    <h3 className="mt-2 font-black text-slate-950">{log.category}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{log.note}</p>
+                    <p className="mt-3 text-sm font-bold text-indigo-700">Energy: {log.energy}/10</p>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+          </section>
+        )}
+
+        {activeTab === "inspiration" && (
+          <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+            <Panel title="Save video link" subtitle="Turn scrolling into research.">
+              <form onSubmit={addInspiration} className="space-y-3">
+                <Input value={inspoForm.url} onChange={(value) => setInspoForm({ ...inspoForm, url: value })} placeholder="Video URL" />
+                <Select value={inspoForm.platform} onChange={(value) => setInspoForm({ ...inspoForm, platform: value as Inspiration["platform"] })} options={["Instagram", "YouTube", "TikTok", "X/Twitter", "Other"]} />
+                <Textarea value={inspoForm.reason} onChange={(value) => setInspoForm({ ...inspoForm, reason: value })} placeholder="Why did you save it?" />
+                <Textarea value={inspoForm.pattern} onChange={(value) => setInspoForm({ ...inspoForm, pattern: value })} placeholder="Hook / structure / visual pattern" />
+                <button className="w-full rounded-2xl bg-fuchsia-600 px-4 py-3 font-black text-white">Save inspiration</button>
+              </form>
+            </Panel>
+            <Panel title="Research library" subtitle="Links you saved with reasons and patterns.">
+              <div className="grid gap-4 md:grid-cols-2">
+                {state.inspirations.map((item) => (
+                  <article key={item.id} className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-black text-fuchsia-700">{item.platform}</span><span className="text-xs font-bold text-slate-400">{item.status}</span></div>
+                    <a href={item.url} target="_blank" className="mt-3 block break-all text-sm font-bold text-indigo-700" rel="noreferrer">{item.url}</a>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{item.reason}</p>
+                    <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-700">{item.pattern}</p>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+          </section>
+        )}
+
+        {activeTab === "ideas" && (
+          <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+            <Panel title="Capture idea" subtitle="Do not lose sparks. Score them later.">
+              <form onSubmit={addIdea} className="space-y-3">
+                <Input value={ideaForm.title} onChange={(value) => setIdeaForm({ ...ideaForm, title: value })} placeholder="Idea title" />
+                <Textarea value={ideaForm.note} onChange={(value) => setIdeaForm({ ...ideaForm, note: value })} placeholder="What is it? Why could it work?" />
+                <Input value={ideaForm.score} onChange={(value) => setIdeaForm({ ...ideaForm, score: value })} placeholder="Score 1–10" />
+                <button className="w-full rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white">Save idea</button>
+              </form>
+            </Panel>
+            <Panel title="Business idea history" subtitle="Lexa can comment and turn good ideas into MVPs.">
+              <div className="grid gap-4 md:grid-cols-2">
+                {state.ideas.map((idea) => (
+                  <article key={idea.id} className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3"><h3 className="font-black text-slate-950">{idea.title}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{idea.score}/10</span></div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{idea.note}</p>
+                    <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{idea.status}</p>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+          </section>
+        )}
+
+        {activeTab === "modes" && (
+          <Panel title="Lexa Modes" subtitle="Write these exact prompts in Telegram to activate a mode.">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {lexaModes.map((mode) => (
+                <article key={mode.name} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-black text-slate-950">{mode.name}</h3>
+                  <code className="mt-3 block rounded-2xl bg-slate-950 p-3 text-sm font-bold text-white">{mode.prompt}</code>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{mode.result}</p>
+                </article>
+              ))}
+            </div>
+          </Panel>
+        )}
+      </section>
     </main>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note: string;
-}) {
+function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
   return (
-    <div className="rounded-[1.5rem] border border-white/70 bg-white/70 p-4">
-      <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-1 text-sm text-slate-500">{note}</p>
+    <div className={`rounded-3xl p-4 ring-1 ${danger ? "bg-rose-50 text-rose-950 ring-rose-100" : "bg-slate-950 text-white ring-slate-800"}`}>
+      <p className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{label}</p>
+      <p className="mt-2 text-2xl font-black">{value}</p>
     </div>
+  );
+}
+
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/70 backdrop-blur md:p-6">
+      <div className="mb-5">
+        <h2 className="text-xl font-black capitalize text-slate-950">{title}</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ActionCard({ title, body }: { title: string; body: string }) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-5">
+      <h3 className="font-black text-slate-950">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+    </article>
+  );
+}
+
+function Input({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
+  return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4" />;
+}
+
+function Textarea({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
+  return <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4" />;
+}
+
+function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) {
+  return (
+    <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
   );
 }

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "my-task-hermes-app",
-  description: "A polished local-first kanban board for managing tasks.",
+  title: "Iacovici.it Life OS",
+  description: "Private tasks, analytics, inspiration, ideas and Lexa accountability dashboard.",
 };
 
 export default function RootLayout({
