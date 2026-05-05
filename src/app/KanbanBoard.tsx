@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AppState, Idea, Inspiration, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
 
-type TabKey = "overview" | "tasks" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
+type TabKey = "overview" | "tasks" | "clients" | "content" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
 
 type SyncState = "loading" | "synced" | "local" | "login" | "error";
 type AuthMode = "checking" | "setup" | "login" | "ready";
@@ -26,6 +26,8 @@ const categories: TimeCategory[] = [
 const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
   { key: "overview", label: "Overview", hint: "oggi + settimana" },
   { key: "tasks", label: "Tasks", hint: "execution board" },
+  { key: "clients", label: "Clients", hint: "active work" },
+  { key: "content", label: "Content", hint: "pipeline" },
   { key: "analytics", label: "Analytics", hint: "time & actions" },
   { key: "inspiration", label: "Inspiration", hint: "saved videos" },
   { key: "projects", label: "Projects", hint: "brands & lanes" },
@@ -272,6 +274,31 @@ export default function KanbanBoard() {
     return { totals, totalHours, productionHours, scrollingHours, avgEnergy };
   }, [state.logs]);
 
+  const commandCenter = useMemo(() => {
+    const activeTasks = state.tasks.filter((task) => task.status !== "done");
+    const highPriority = activeTasks.filter((task) => task.priority === "High");
+    const topThree = [...highPriority, ...activeTasks.filter((task) => task.priority !== "High")].slice(0, 3);
+    const done = state.tasks.filter((task) => task.status === "done").slice(0, 5);
+    const nextTask = topThree[0];
+    const latestEnergy = state.logs[0]?.energy ?? Math.round(analytics.avgEnergy || 0);
+    return { activeTasks, topThree, done, nextTask, latestEnergy };
+  }, [analytics.avgEnergy, state.logs, state.tasks]);
+
+  const clientMap = useMemo(() => {
+    const clients = ["ABC Vetrate Panoramiche", "ProHappyA", "Catalin"];
+    return clients.map((client) => ({
+      client,
+      tasks: state.tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(client.toLowerCase())),
+      logs: state.logs.filter((log) => log.note.toLowerCase().includes(client.toLowerCase())),
+    }));
+  }, [state.logs, state.tasks]);
+
+  const contentPipeline = useMemo(() => {
+    const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(`${task.title} ${task.description}`));
+    const contentLogs = state.logs.filter((log) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(log.note));
+    return { contentTasks, contentLogs, inspirations: state.inspirations.slice(0, 6) };
+  }, [state.inspirations, state.logs, state.tasks]);
+
   const projectMap = useMemo(() => {
     const projects = state.ideas.filter((idea) => idea.title.startsWith("Project:"));
     const accounts = state.ideas.filter((idea) => idea.title.startsWith("Account:"));
@@ -410,7 +437,7 @@ export default function KanbanBoard() {
           </div>
         </header>
 
-        <nav className="grid gap-2 rounded-3xl border border-white/70 bg-white/80 p-2 shadow-lg shadow-slate-200/60 backdrop-blur sm:grid-cols-2 lg:grid-cols-7">
+        <nav className="grid gap-2 rounded-3xl border border-white/70 bg-white/80 p-2 shadow-lg shadow-slate-200/60 backdrop-blur sm:grid-cols-2 lg:grid-cols-9">
           {tabs.map((tab) => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`rounded-2xl px-4 py-3 text-left transition ${activeTab === tab.key ? "bg-slate-950 text-white shadow-xl shadow-slate-300" : "text-slate-600 hover:bg-slate-100"}`}>
               <span className="block text-sm font-black">{tab.label}</span>
@@ -421,15 +448,24 @@ export default function KanbanBoard() {
 
         {activeTab === "overview" && (
           <section className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-            <Panel title="Today’s operating system" subtitle="Keep the day simple: money, content, energy.">
+            <Panel title="Today Command Center" subtitle="What matters now, not an endless list.">
               <div className="grid gap-4 sm:grid-cols-3">
-                <ActionCard title="Money" body="One action that can create revenue, leads, offers or useful assets." />
-                <ActionCard title="Content" body="Record, edit, publish, analyze, or research one concrete piece." />
-                <ActionCard title="Energy" body="Walk, eat, clean, sleep, breathe. Low energy destroys execution." />
+                <ActionCard title="Top 3" body={commandCenter.topThree.map((task) => `• ${task.title}`).join("\n") || "No active top tasks. Ask Lexa for a battle plan."} />
+                <ActionCard title="Next move" body={commandCenter.nextTask ? commandCenter.nextTask.description || commandCenter.nextTask.title : "Choose one small money/content/energy action."} />
+                <ActionCard title="Energy" body={commandCenter.latestEnergy ? `${commandCenter.latestEnergy}/10 — adjust workload to reality.` : "Log energy in Telegram so Lexa can pace the day."} />
               </div>
-              <div className="mt-6 rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
-                <p className="font-black">Cron accountability is active:</p>
-                <p className="mt-2 text-sm leading-6">Lexa asks every 2 hours from 09:00 to 21:00 what happened. Late replies can be split into 2-hour blocks and saved here.</p>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl bg-emerald-50 p-5 text-emerald-950 ring-1 ring-emerald-100">
+                  <p className="font-black">Done journal</p>
+                  <ul className="mt-2 space-y-2 text-sm leading-6">
+                    {commandCenter.done.length === 0 && <li>No completions yet today.</li>}
+                    {commandCenter.done.map((task) => <li key={task.id}>✓ {task.title}</li>)}
+                  </ul>
+                </div>
+                <div className="rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
+                  <p className="font-black">Lexa proactivity</p>
+                  <p className="mt-2 text-sm leading-6">Morning plan, pre-call briefs and evening Done Journal are active. Keep Telegram updates short; Lexa structures the rest.</p>
+                </div>
               </div>
             </Panel>
             <Panel title="Weekly signal" subtitle="What Lexa should optimize every Sunday.">
@@ -470,6 +506,39 @@ export default function KanbanBoard() {
                 </Panel>
               ))}
             </div>
+          </section>
+        )}
+
+
+        {activeTab === "clients" && (
+          <section className="grid gap-6 lg:grid-cols-3">
+            {clientMap.map((client) => (
+              <Panel key={client.client} title={client.client} subtitle={`${client.tasks.length} tasks • ${client.logs.length} logs`}>
+                <div className="space-y-3">
+                  {client.tasks.length === 0 && client.logs.length === 0 && <EmptyState text="No tracked activity yet. Mention this client in Telegram and Lexa will connect the dots." />}
+                  {client.tasks.slice(0, 5).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
+                  {client.logs.slice(0, 3).map((log) => <p key={log.id} className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                </div>
+              </Panel>
+            ))}
+          </section>
+        )}
+
+        {activeTab === "content" && (
+          <section className="grid gap-6 lg:grid-cols-[1fr_.85fr]">
+            <Panel title="Content pipeline" subtitle="Iacovici.it, vindepemarte and reusable assets.">
+              <div className="grid gap-4 md:grid-cols-2">
+                {contentPipeline.contentTasks.length === 0 && <EmptyState text="No content tasks yet. Tell Lexa when a video is scripted, recorded, edited or published." />}
+                {contentPipeline.contentTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
+              </div>
+            </Panel>
+            <Panel title="Signals & ideas" subtitle="Recent content work and saved inspiration.">
+              <div className="space-y-3">
+                {contentPipeline.contentLogs.slice(0, 5).map((log) => <p key={log.id} className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                {contentPipeline.inspirations.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block rounded-2xl bg-fuchsia-50 p-3 text-sm font-bold text-fuchsia-800">{item.platform}: {item.reason || item.url}</a>)}
+                {contentPipeline.contentLogs.length === 0 && contentPipeline.inspirations.length === 0 && <EmptyState text="No content signals yet." />}
+              </div>
+            </Panel>
           </section>
         )}
 
@@ -604,6 +673,19 @@ function ProjectCard({ item, kind }: { item: Idea; kind: "project" | "account" }
       </div>
       <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.note}</p>
       <p className="mt-4 text-sm font-black text-indigo-700">Priority score: {item.score}/10</p>
+    </article>
+  );
+}
+
+function TaskMini({ task, onMove }: { task: Task; onMove: () => void }) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-black text-slate-950">{task.title}</h3>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
+      <button onClick={onMove} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">{task.status}</button>
     </article>
   );
 }
