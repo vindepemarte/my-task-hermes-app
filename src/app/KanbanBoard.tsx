@@ -1,56 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import type { AppState, Idea, Inspiration, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
 
 type TabKey = "overview" | "tasks" | "analytics" | "inspiration" | "ideas" | "modes";
-type TaskStatus = "todo" | "in-progress" | "done";
-type TaskPriority = "Low" | "Medium" | "High";
-type TimeCategory =
-  | "Produzione"
-  | "Studio/Ricerca"
-  | "Business/Admin"
-  | "Salute/Energia"
-  | "Relazioni/Casa"
-  | "Procrastinazione/Scrolling"
-  | "Riposo"
-  | "Altro";
 
-type Task = {
-  id: string;
-  title: string;
-  description: string;
-  priority: TaskPriority;
-  status: TaskStatus;
-};
+type SyncState = "loading" | "synced" | "local" | "needs-key" | "error";
 
-type TimeLog = {
-  id: string;
-  date: string;
-  slot: string;
-  category: TimeCategory;
-  hours: number;
-  note: string;
-  energy: number;
-};
-
-type Inspiration = {
-  id: string;
-  url: string;
-  reason: string;
-  pattern: string;
-  platform: "Instagram" | "YouTube" | "TikTok" | "X/Twitter" | "Other";
-  status: "saved" | "analyzed" | "adapted";
-};
-
-type Idea = {
-  id: string;
-  title: string;
-  note: string;
-  score: number;
-  status: "raw" | "research" | "build" | "paused";
-};
-
-const STORAGE_KEY = "iacovici-life-os:v1";
+const STORAGE_KEY = "iacovici-life-os:v2";
+const ACCESS_KEY_STORAGE = "iacovici-life-os:access-key";
 
 const categories: TimeCategory[] = [
   "Produzione",
@@ -75,9 +34,9 @@ const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
 const seededTasks: Task[] = [
   {
     id: "task-content-week",
-    title: "Record Iacovici.it AI Week 01",
+    title: "Record Iacovici.it AI content batch",
     description:
-      "Batch record 7 talking-head videos from the prepared scripts. Keep each video 35–55 seconds, no screen recording, leave room for captions and animated cards.",
+      "Record the weekly talking-head videos from the prepared scripts. Keep each video direct, confident and useful, with room for captions and animated visual cards.",
     priority: "High",
     status: "todo",
   },
@@ -85,15 +44,7 @@ const seededTasks: Task[] = [
     id: "task-video-pipeline",
     title: "Run video-use + hyperframes pipeline",
     description:
-      "Process the recorded videos on macOS: auto cuts, captions, camera movement, animated keywords, exports for YouTube Shorts and Instagram Reels.",
-    priority: "High",
-    status: "todo",
-  },
-  {
-    id: "task-posting",
-    title: "Publish or schedule daily Shorts/Reels",
-    description:
-      "Use Lexa captions/titles/hashtags. YouTube can be automated later; Instagram/TikTok can stay manual until API setup is ready.",
+      "Process recorded videos on macOS with tight cuts, subtitles, movement, dynamic keywords and exports for YouTube Shorts and Instagram Reels.",
     priority: "High",
     status: "todo",
   },
@@ -107,39 +58,12 @@ const seededTasks: Task[] = [
   },
 ];
 
-const seededLogs: TimeLog[] = [
-  {
-    id: "seed-log-1",
-    date: new Date().toISOString().slice(0, 10),
-    slot: "09:00–11:00",
-    category: "Produzione",
-    hours: 2,
-    note: "Example: record one AI video or build a concrete asset.",
-    energy: 7,
-  },
-];
-
-const seededInspirations: Inspiration[] = [
-  {
-    id: "seed-inspo-1",
-    url: "https://youtube.com/shorts/example",
-    reason: "Strong hook + fast visual rhythm. Replace this with a real saved video.",
-    pattern: "Shock hook → 3 quick points → soft CTA",
-    platform: "YouTube",
-    status: "saved",
-  },
-];
-
-const seededIdeas: Idea[] = [
-  {
-    id: "seed-idea-1",
-    title: "Iacovici.it AI community",
-    note:
-      "Teach practical AI workflows in Italian and English, build trust with daily content, then launch a deeper 10–15 video pro course/community.",
-    score: 9,
-    status: "research",
-  },
-];
+const defaultState: AppState = {
+  tasks: seededTasks,
+  logs: [],
+  inspirations: [],
+  ideas: [],
+};
 
 const lexaModes = [
   {
@@ -160,7 +84,7 @@ const lexaModes = [
   {
     name: "Business partner",
     prompt: "Lexa, business partner mode: [idea]",
-    result: "Monetization, MVP, effort, risk, next step, and whether to build/ignore it.",
+    result: "Monetization, MVP, effort, risk, next step, and whether to build, park or ignore it.",
   },
   {
     name: "Evening review",
@@ -174,16 +98,13 @@ const lexaModes = [
   },
 ];
 
-const defaultState = {
-  tasks: seededTasks,
-  logs: seededLogs,
-  inspirations: seededInspirations,
-  ideas: seededIdeas,
+const priorityStyle: Record<TaskPriority, string> = {
+  Low: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+  Medium: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
+  High: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
 };
 
-type AppState = typeof defaultState;
-
-function loadState(): AppState {
+function loadLocalState(): AppState {
   if (typeof window === "undefined") return defaultState;
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -191,9 +112,9 @@ function loadState(): AppState {
     const parsed = JSON.parse(saved) as Partial<AppState>;
     return {
       tasks: parsed.tasks?.length ? parsed.tasks : seededTasks,
-      logs: parsed.logs?.length ? parsed.logs : seededLogs,
-      inspirations: parsed.inspirations?.length ? parsed.inspirations : seededInspirations,
-      ideas: parsed.ideas?.length ? parsed.ideas : seededIdeas,
+      logs: parsed.logs ?? [],
+      inspirations: parsed.inspirations ?? [],
+      ideas: parsed.ideas ?? [],
     };
   } catch {
     return defaultState;
@@ -204,30 +125,76 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const priorityStyle: Record<TaskPriority, string> = {
-  Low: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
-  Medium: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
-  High: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
-};
-
 export default function KanbanBoard() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  const [state, setState] = useState<AppState>(() => loadState());
+  const [state, setState] = useState<AppState>(() => loadLocalState());
+  const [accessKey, setAccessKey] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(ACCESS_KEY_STORAGE) || ""));
+  const [syncState, setSyncState] = useState<SyncState>("loading");
+  const [syncMessage, setSyncMessage] = useState("Connecting to Life OS cloud database…");
 
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "Medium" as TaskPriority });
-  const [logForm, setLogForm] = useState({
-    slot: "",
-    category: "Produzione" as TimeCategory,
-    hours: "2",
-    note: "",
-    energy: "7",
-  });
+  const [logForm, setLogForm] = useState({ slot: "", category: "Produzione" as TimeCategory, hours: "2", note: "", energy: "7" });
   const [inspoForm, setInspoForm] = useState({ url: "", reason: "", pattern: "", platform: "Instagram" as Inspiration["platform"] });
   const [ideaForm, setIdeaForm] = useState({ title: "", note: "", score: "7" });
 
   useEffect(() => {
+    void loadCloudState(accessKey);
+    // Run once on mount with the key loaded by the lazy state initializer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const response = await fetch(path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessKey ? { "x-life-os-key": accessKey } : {}),
+        ...(options.headers || {}),
+      },
+    });
+    if (response.status === 401) {
+      setSyncState("needs-key");
+      throw new Error("Access key required");
+    }
+    if (!response.ok) {
+      const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(errorBody?.error || "Life OS API request failed");
+    }
+    return response.json() as Promise<T>;
+  }
+
+  async function loadCloudState(keyOverride?: string) {
+    const key = keyOverride ?? accessKey;
+    setSyncState("loading");
+    setSyncMessage("Connecting to Life OS cloud database…");
+    try {
+      const response = await fetch("/api/life-os", {
+        headers: key ? { "x-life-os-key": key } : undefined,
+      });
+      if (response.status === 401) {
+        setSyncState("needs-key");
+        setSyncMessage("Paste your private Life OS access key to unlock cloud sync.");
+        return;
+      }
+      if (!response.ok) throw new Error("Cloud database did not respond correctly");
+      const cloudState = (await response.json()) as AppState;
+      setState(cloudState);
+      setSyncState("synced");
+      setSyncMessage("Cloud sync active. Lexa and the web app can use the same Postgres brain.");
+    } catch (error) {
+      setSyncState("error");
+      setSyncMessage(error instanceof Error ? error.message : "Cloud sync failed. Local backup is still available in this browser.");
+    }
+  }
+
+  function saveAccessKey() {
+    window.localStorage.setItem(ACCESS_KEY_STORAGE, accessKey.trim());
+    void loadCloudState(accessKey.trim());
+  }
 
   const analytics = useMemo(() => {
     const totals = categories.map((category) => ({
@@ -239,78 +206,96 @@ export default function KanbanBoard() {
       .filter((item) => ["Produzione", "Studio/Ricerca", "Business/Admin"].includes(item.category))
       .reduce((sum, item) => sum + item.hours, 0);
     const scrollingHours = totals.find((item) => item.category === "Procrastinazione/Scrolling")?.hours ?? 0;
-    const avgEnergy = state.logs.length
-      ? state.logs.reduce((sum, log) => sum + Number(log.energy || 0), 0) / state.logs.length
-      : 0;
+    const avgEnergy = state.logs.length ? state.logs.reduce((sum, log) => sum + Number(log.energy || 0), 0) / state.logs.length : 0;
     return { totals, totalHours, productionHours, scrollingHours, avgEnergy };
   }, [state.logs]);
 
-  function addTask(event: FormEvent) {
+  async function addTask(event: FormEvent) {
     event.preventDefault();
     if (!taskForm.title.trim()) return;
-    setState((current) => ({
-      ...current,
-      tasks: [
-        { id: uid("task"), title: taskForm.title.trim(), description: taskForm.description.trim(), priority: taskForm.priority, status: "todo" },
-        ...current.tasks,
-      ],
-    }));
+    const optimistic: Task = { id: uid("task"), title: taskForm.title.trim(), description: taskForm.description.trim(), priority: taskForm.priority, status: "todo" };
+    setState((current) => ({ ...current, tasks: [optimistic, ...current.tasks] }));
     setTaskForm({ title: "", description: "", priority: "Medium" });
+    try {
+      const saved = await apiFetch<Task>("/api/life-os", { method: "POST", body: JSON.stringify({ type: "task", data: optimistic }) });
+      setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === optimistic.id ? saved : task)) }));
+      setSyncState("synced");
+    } catch (error) {
+      setSyncState(error instanceof Error && error.message === "Access key required" ? "needs-key" : "local");
+      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+    }
   }
 
-  function addTimeLog(event: FormEvent) {
+  async function addTimeLog(event: FormEvent) {
     event.preventDefault();
     if (!logForm.note.trim()) return;
-    setState((current) => ({
-      ...current,
-      logs: [
-        {
-          id: uid("log"),
-          date: new Date().toISOString().slice(0, 10),
-          slot: logForm.slot.trim() || "manual entry",
-          category: logForm.category,
-          hours: Number(logForm.hours || 0),
-          note: logForm.note.trim(),
-          energy: Number(logForm.energy || 0),
-        },
-        ...current.logs,
-      ],
-    }));
+    const optimistic: TimeLog = {
+      id: uid("log"),
+      date: new Date().toISOString().slice(0, 10),
+      slot: logForm.slot.trim() || "manual entry",
+      category: logForm.category,
+      hours: Number(logForm.hours || 0),
+      note: logForm.note.trim(),
+      energy: Number(logForm.energy || 0),
+    };
+    setState((current) => ({ ...current, logs: [optimistic, ...current.logs] }));
     setLogForm({ slot: "", category: "Produzione", hours: "2", note: "", energy: "7" });
+    try {
+      const saved = await apiFetch<TimeLog>("/api/life-os", { method: "POST", body: JSON.stringify({ type: "timeLog", data: optimistic }) });
+      setState((current) => ({ ...current, logs: current.logs.map((log) => (log.id === optimistic.id ? saved : log)) }));
+      setSyncState("synced");
+    } catch {
+      setSyncState("local");
+      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+    }
   }
 
-  function addInspiration(event: FormEvent) {
+  async function addInspiration(event: FormEvent) {
     event.preventDefault();
     if (!inspoForm.url.trim()) return;
-    setState((current) => ({
-      ...current,
-      inspirations: [
-        { id: uid("inspo"), url: inspoForm.url.trim(), reason: inspoForm.reason.trim(), pattern: inspoForm.pattern.trim(), platform: inspoForm.platform, status: "saved" },
-        ...current.inspirations,
-      ],
-    }));
+    const optimistic: Inspiration = { id: uid("inspo"), url: inspoForm.url.trim(), reason: inspoForm.reason.trim(), pattern: inspoForm.pattern.trim(), platform: inspoForm.platform, status: "saved" };
+    setState((current) => ({ ...current, inspirations: [optimistic, ...current.inspirations] }));
     setInspoForm({ url: "", reason: "", pattern: "", platform: "Instagram" });
+    try {
+      const saved = await apiFetch<Inspiration>("/api/life-os", { method: "POST", body: JSON.stringify({ type: "inspiration", data: optimistic }) });
+      setState((current) => ({ ...current, inspirations: current.inspirations.map((item) => (item.id === optimistic.id ? saved : item)) }));
+      setSyncState("synced");
+    } catch {
+      setSyncState("local");
+      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+    }
   }
 
-  function addIdea(event: FormEvent) {
+  async function addIdea(event: FormEvent) {
     event.preventDefault();
     if (!ideaForm.title.trim()) return;
-    setState((current) => ({
-      ...current,
-      ideas: [
-        { id: uid("idea"), title: ideaForm.title.trim(), note: ideaForm.note.trim(), score: Number(ideaForm.score || 0), status: "raw" },
-        ...current.ideas,
-      ],
-    }));
+    const optimistic: Idea = { id: uid("idea"), title: ideaForm.title.trim(), note: ideaForm.note.trim(), score: Number(ideaForm.score || 0), status: "raw" };
+    setState((current) => ({ ...current, ideas: [optimistic, ...current.ideas] }));
     setIdeaForm({ title: "", note: "", score: "7" });
+    try {
+      const saved = await apiFetch<Idea>("/api/life-os", { method: "POST", body: JSON.stringify({ type: "idea", data: optimistic }) });
+      setState((current) => ({ ...current, ideas: current.ideas.map((idea) => (idea.id === optimistic.id ? saved : idea)) }));
+      setSyncState("synced");
+    } catch {
+      setSyncState("local");
+      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+    }
   }
 
-  function cycleTask(taskId: string) {
+  async function cycleTask(taskId: string) {
     const next: Record<TaskStatus, TaskStatus> = { todo: "in-progress", "in-progress": "done", done: "todo" };
-    setState((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, status: next[task.status] } : task)),
-    }));
+    const currentTask = state.tasks.find((task) => task.id === taskId);
+    if (!currentTask) return;
+    const nextStatus = next[currentTask.status];
+    setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, status: nextStatus } : task)) }));
+    try {
+      const saved = await apiFetch<Task>("/api/life-os", { method: "PATCH", body: JSON.stringify({ type: "taskStatus", id: taskId, status: nextStatus }) });
+      setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === taskId ? saved : task)) }));
+      setSyncState("synced");
+    } catch {
+      setSyncState("local");
+      setSyncMessage("Status changed locally. Add the access key to sync with Postgres.");
+    }
   }
 
   return (
@@ -320,11 +305,9 @@ export default function KanbanBoard() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-sm font-black uppercase tracking-[0.3em] text-indigo-600">Iacovici.it Life OS</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
-                Tasks, Analytics & Lexa accountability.
-              </h1>
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Tasks, Analytics & Lexa accountability.</h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                A private local-first dashboard for execution, time tracking, saved content inspiration, business ideas and the exact prompts to activate Lexa modes.
+                A private cloud-synced dashboard for execution, time tracking, saved content inspiration, business ideas and the exact prompts to activate Lexa modes.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3 lg:w-[30rem]">
@@ -333,17 +316,29 @@ export default function KanbanBoard() {
               <Metric label="Scrolling" value={`${analytics.scrollingHours.toFixed(1)}h`} danger />
             </div>
           </div>
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-950">Cloud database</p>
+                <p className={`mt-1 text-sm leading-6 ${syncState === "synced" ? "text-emerald-700" : syncState === "error" ? "text-rose-700" : "text-slate-600"}`}>{syncMessage}</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={accessKey}
+                  onChange={(event) => setAccessKey(event.target.value)}
+                  placeholder="Private access key"
+                  type="password"
+                  className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4 sm:w-72"
+                />
+                <button onClick={saveAccessKey} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">Connect</button>
+              </div>
+            </div>
+          </div>
         </header>
 
         <nav className="grid gap-2 rounded-3xl border border-white/70 bg-white/80 p-2 shadow-lg shadow-slate-200/60 backdrop-blur sm:grid-cols-2 lg:grid-cols-6">
           {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-2xl px-4 py-3 text-left transition ${
-                activeTab === tab.key ? "bg-slate-950 text-white shadow-xl shadow-slate-300" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`rounded-2xl px-4 py-3 text-left transition ${activeTab === tab.key ? "bg-slate-950 text-white shadow-xl shadow-slate-300" : "text-slate-600 hover:bg-slate-100"}`}>
               <span className="block text-sm font-black">{tab.label}</span>
               <span className="text-xs opacity-70">{tab.hint}</span>
             </button>
@@ -360,22 +355,15 @@ export default function KanbanBoard() {
               </div>
               <div className="mt-6 rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
                 <p className="font-black">Cron accountability is active:</p>
-                <p className="mt-2 text-sm leading-6">
-                  Lexa asks every 2 hours from 09:00 to 21:00 what happened. If you answer late, summarize the full period and split it into 2-hour blocks here.
-                </p>
+                <p className="mt-2 text-sm leading-6">Lexa asks every 2 hours from 09:00 to 21:00 what happened. Late replies can be split into 2-hour blocks and saved here.</p>
               </div>
             </Panel>
             <Panel title="Weekly signal" subtitle="What Lexa should optimize every Sunday.">
               <div className="space-y-3">
                 {analytics.totals.map((item) => (
                   <div key={item.category}>
-                    <div className="flex items-center justify-between text-sm font-bold text-slate-700">
-                      <span>{item.category}</span>
-                      <span>{item.hours.toFixed(1)}h</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${analytics.totalHours ? Math.min(100, (item.hours / analytics.totalHours) * 100) : 0}%` }} />
-                    </div>
+                    <div className="flex items-center justify-between text-sm font-bold text-slate-700"><span>{item.category}</span><span>{item.hours.toFixed(1)}h</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${analytics.totalHours ? Math.min(100, (item.hours / analytics.totalHours) * 100) : 0}%` }} /></div>
                   </div>
                 ))}
               </div>
@@ -399,14 +387,9 @@ export default function KanbanBoard() {
                   <div className="space-y-3">
                     {state.tasks.filter((task) => task.status === status).map((task) => (
                       <article key={task.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="font-black text-slate-950">{task.title}</h3>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
-                        </div>
+                        <div className="flex items-start justify-between gap-3"><h3 className="font-black text-slate-950">{task.title}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span></div>
                         <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
-                        <button onClick={() => cycleTask(task.id)} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">
-                          Move status
-                        </button>
+                        <button onClick={() => void cycleTask(task.id)} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">Move status</button>
                       </article>
                     ))}
                   </div>
@@ -420,23 +403,19 @@ export default function KanbanBoard() {
           <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
             <Panel title="Log time block" subtitle="Use this when you answer Lexa late or want manual tracking.">
               <form onSubmit={addTimeLog} className="space-y-3">
-                <Input value={logForm.slot} onChange={(value) => setLogForm({ ...logForm, slot: value })} placeholder="Slot e.g. 09:00–11:00" />
+                <Input value={logForm.slot} onChange={(value) => setLogForm({ ...logForm, slot: value })} placeholder="Slot, e.g. 09:00–11:00" />
                 <Select value={logForm.category} onChange={(value) => setLogForm({ ...logForm, category: value as TimeCategory })} options={categories} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input value={logForm.hours} onChange={(value) => setLogForm({ ...logForm, hours: value })} placeholder="Hours" />
-                  <Input value={logForm.energy} onChange={(value) => setLogForm({ ...logForm, energy: value })} placeholder="Energy 1–10" />
-                </div>
+                <div className="grid grid-cols-2 gap-3"><Input value={logForm.hours} onChange={(value) => setLogForm({ ...logForm, hours: value })} placeholder="Hours" /><Input value={logForm.energy} onChange={(value) => setLogForm({ ...logForm, energy: value })} placeholder="Energy 1–10" /></div>
                 <Textarea value={logForm.note} onChange={(value) => setLogForm({ ...logForm, note: value })} placeholder="What happened?" />
                 <button className="w-full rounded-2xl bg-indigo-600 px-4 py-3 font-black text-white">Add time log</button>
               </form>
             </Panel>
             <Panel title="Action analytics" subtitle={`Average energy: ${analytics.avgEnergy.toFixed(1)}/10`}>
               <div className="grid gap-4 md:grid-cols-2">
+                {state.logs.length === 0 && <EmptyState text="No time logs yet. Reply to Lexa’s check-ins or add a manual block here." />}
                 {state.logs.map((log) => (
                   <article key={log.id} className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
-                      <span>{log.date}</span><span>•</span><span>{log.slot}</span><span>•</span><span>{log.hours}h</span>
-                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500"><span>{log.date}</span><span>•</span><span>{log.slot}</span><span>•</span><span>{log.hours}h</span></div>
                     <h3 className="mt-2 font-black text-slate-950">{log.category}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{log.note}</p>
                     <p className="mt-3 text-sm font-bold text-indigo-700">Energy: {log.energy}/10</p>
@@ -460,6 +439,7 @@ export default function KanbanBoard() {
             </Panel>
             <Panel title="Research library" subtitle="Links you saved with reasons and patterns.">
               <div className="grid gap-4 md:grid-cols-2">
+                {state.inspirations.length === 0 && <EmptyState text="Save strong videos here: hooks, structures, pacing and angles worth adapting." />}
                 {state.inspirations.map((item) => (
                   <article key={item.id} className="rounded-3xl border border-slate-200 bg-white p-4">
                     <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-black text-fuchsia-700">{item.platform}</span><span className="text-xs font-bold text-slate-400">{item.status}</span></div>
@@ -485,10 +465,11 @@ export default function KanbanBoard() {
             </Panel>
             <Panel title="Business idea history" subtitle="Lexa can comment and turn good ideas into MVPs.">
               <div className="grid gap-4 md:grid-cols-2">
+                {state.ideas.length === 0 && <EmptyState text="Capture raw business ideas here. Good ideas can become experiments, content series or offers." />}
                 {state.ideas.map((idea) => (
                   <article key={idea.id} className="rounded-3xl border border-slate-200 bg-white p-4">
                     <div className="flex items-start justify-between gap-3"><h3 className="font-black text-slate-950">{idea.title}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{idea.score}/10</span></div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{idea.note}</p>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{idea.note}</p>
                     <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{idea.status}</p>
                   </article>
                 ))}
@@ -516,33 +497,19 @@ export default function KanbanBoard() {
 }
 
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <div className={`rounded-3xl p-4 ring-1 ${danger ? "bg-rose-50 text-rose-950 ring-rose-100" : "bg-slate-950 text-white ring-slate-800"}`}>
-      <p className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{label}</p>
-      <p className="mt-2 text-2xl font-black">{value}</p>
-    </div>
-  );
+  return <div className={`rounded-3xl p-4 ring-1 ${danger ? "bg-rose-50 text-rose-950 ring-rose-100" : "bg-slate-950 text-white ring-slate-800"}`}><p className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>;
 }
 
-function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/70 backdrop-blur md:p-6">
-      <div className="mb-5">
-        <h2 className="text-xl font-black capitalize text-slate-950">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
-      </div>
-      {children}
-    </section>
-  );
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  return <section className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/70 backdrop-blur md:p-6"><div className="mb-5"><h2 className="text-xl font-black capitalize text-slate-950">{title}</h2><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</section>;
 }
 
 function ActionCard({ title, body }: { title: string; body: string }) {
-  return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-5">
-      <h3 className="font-black text-slate-950">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
-    </article>
-  );
+  return <article className="rounded-3xl border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{body}</p></article>;
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold leading-6 text-slate-500 md:col-span-2">{text}</div>;
 }
 
 function Input({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
@@ -554,9 +521,5 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
 }
 
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) {
-  return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">
-      {options.map((option) => <option key={option} value={option}>{option}</option>)}
-    </select>
-  );
+  return <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
 }
