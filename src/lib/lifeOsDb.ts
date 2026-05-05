@@ -105,6 +105,19 @@ export const emptyState: AppState = {
   ideas: [],
 };
 
+async function ensureDefaultTasks() {
+  const db = getPool();
+  const countResult = await db.query("select count(*)::int as count from life_os.tasks");
+  if (Number(countResult.rows[0]?.count || 0) > 0) return;
+
+  for (const task of defaultTasks) {
+    await db.query(
+      "insert into life_os.tasks (title, notes, priority, status) values ($1, $2, $3, $4)",
+      [task.title, task.description, priorityToDb(task.priority), taskStatusToDb(task.status)],
+    );
+  }
+}
+
 function taskStatusFromDb(status: string): TaskStatus {
   return status === "doing" ? "in-progress" : (status as TaskStatus);
 }
@@ -137,6 +150,7 @@ function ideaStatusFromDb(status: string): Idea["status"] {
 
 export async function getLifeOsState(): Promise<AppState> {
   const db = getPool();
+  await ensureDefaultTasks();
   const [tasks, logs, inspirations, ideas] = await Promise.all([
     db.query("select id::text, title, notes, priority, status from life_os.tasks order by updated_at desc, created_at desc"),
     db.query("select id::text, log_date, start_time, end_time, category, hours, note, energy from life_os.time_logs order by log_date desc, created_at desc"),
