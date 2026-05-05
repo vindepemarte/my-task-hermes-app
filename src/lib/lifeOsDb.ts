@@ -58,7 +58,7 @@ const connectionString = process.env.LIFE_OS_DATABASE_URL || process.env.POSTGRE
 
 let pool: Pool | undefined;
 
-function getPool() {
+export function getLifeOsPool() {
   if (!connectionString) {
     throw new Error("Missing LIFE_OS_DATABASE_URL");
   }
@@ -106,7 +106,7 @@ export const emptyState: AppState = {
 };
 
 async function ensureDefaultTasks() {
-  const db = getPool();
+  const db = getLifeOsPool();
   const countResult = await db.query("select count(*)::int as count from life_os.tasks");
   if (Number(countResult.rows[0]?.count || 0) > 0) return;
 
@@ -149,7 +149,7 @@ function ideaStatusFromDb(status: string): Idea["status"] {
 }
 
 export async function getLifeOsState(): Promise<AppState> {
-  const db = getPool();
+  const db = getLifeOsPool();
   await ensureDefaultTasks();
   const [tasks, logs, inspirations, ideas] = await Promise.all([
     db.query("select id::text, title, notes, priority, status from life_os.tasks order by updated_at desc, created_at desc"),
@@ -196,7 +196,7 @@ export async function getLifeOsState(): Promise<AppState> {
 }
 
 export async function createTask(input: Omit<Task, "id" | "status">) {
-  const result = await getPool().query(
+  const result = await getLifeOsPool().query(
     "insert into life_os.tasks (title, notes, priority, status) values ($1, $2, $3, 'todo') returning id::text, title, notes, priority, status",
     [input.title, input.description, priorityToDb(input.priority)],
   );
@@ -206,7 +206,7 @@ export async function createTask(input: Omit<Task, "id" | "status">) {
 
 export async function createTimeLog(input: Omit<TimeLog, "id" | "date"> & { date?: string; source?: string }) {
   const [startTime, endTime] = input.slot.includes("–") ? input.slot.split("–") : input.slot.split("-");
-  const result = await getPool().query(
+  const result = await getLifeOsPool().query(
     `insert into life_os.time_logs (log_date, start_time, end_time, category, hours, energy, note, source)
      values ($1, $2, $3, $4, $5, $6, $7, $8)
      returning id::text, log_date, start_time, end_time, category, hours, note, energy`,
@@ -225,7 +225,7 @@ export async function createTimeLog(input: Omit<TimeLog, "id" | "date"> & { date
 }
 
 export async function createInspiration(input: Omit<Inspiration, "id" | "status">) {
-  const result = await getPool().query(
+  const result = await getLifeOsPool().query(
     `insert into life_os.inspiration_links (url, platform, saved_reason, pattern_notes, status)
      values ($1, $2, $3, $4, 'saved')
      returning id::text, url, platform, saved_reason, pattern_notes, status`,
@@ -236,7 +236,7 @@ export async function createInspiration(input: Omit<Inspiration, "id" | "status"
 }
 
 export async function createIdea(input: Omit<Idea, "id" | "status">) {
-  const result = await getPool().query(
+  const result = await getLifeOsPool().query(
     `insert into life_os.business_ideas (title, description, score, status)
      values ($1, $2, $3, 'raw')
      returning id::text, title, description, score, status`,
@@ -247,7 +247,7 @@ export async function createIdea(input: Omit<Idea, "id" | "status">) {
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus) {
-  const result = await getPool().query(
+  const result = await getLifeOsPool().query(
     "update life_os.tasks set status=$2 where id=$1 returning id::text, title, notes, priority, status",
     [id, taskStatusToDb(status)],
   );

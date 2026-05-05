@@ -6,10 +6,11 @@ import type { AppState, Idea, Inspiration, Task, TaskPriority, TaskStatus, TimeC
 
 type TabKey = "overview" | "tasks" | "analytics" | "inspiration" | "ideas" | "modes";
 
-type SyncState = "loading" | "synced" | "local" | "needs-key" | "error";
+type SyncState = "loading" | "synced" | "local" | "login" | "error";
+type AuthMode = "checking" | "setup" | "login" | "ready";
 
 const STORAGE_KEY = "iacovici-life-os:v2";
-const ACCESS_KEY_STORAGE = "iacovici-life-os:access-key";
+const SESSION_TOKEN_STORAGE = "iacovici-life-os:session-token";
 
 const categories: TimeCategory[] = [
   "Produzione",
@@ -128,9 +129,12 @@ function uid(prefix: string) {
 export default function KanbanBoard() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [state, setState] = useState<AppState>(() => loadLocalState());
-  const [accessKey, setAccessKey] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(ACCESS_KEY_STORAGE) || ""));
+  const [sessionToken, setSessionToken] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(SESSION_TOKEN_STORAGE) || ""));
+  const [authMode, setAuthMode] = useState<AuthMode>("checking");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
   const [syncState, setSyncState] = useState<SyncState>("loading");
-  const [syncMessage, setSyncMessage] = useState("Connecting to Life OS cloud database…");
+  const [syncMessage, setSyncMessage] = useState("Checking Life OS login…");
 
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "Medium" as TaskPriority });
   const [logForm, setLogForm] = useState({ slot: "", category: "Produzione" as TimeCategory, hours: "2", note: "", energy: "7" });
@@ -138,8 +142,8 @@ export default function KanbanBoard() {
   const [ideaForm, setIdeaForm] = useState({ title: "", note: "", score: "7" });
 
   useEffect(() => {
-    void loadCloudState(accessKey);
-    // Run once on mount with the key loaded by the lazy state initializer.
+    void initializeAuth();
+    // Run once on mount; auth state is stored in localStorage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -152,13 +156,14 @@ export default function KanbanBoard() {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        ...(accessKey ? { "x-life-os-key": accessKey } : {}),
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         ...(options.headers || {}),
       },
     });
     if (response.status === 401) {
-      setSyncState("needs-key");
-      throw new Error("Access key required");
+      setAuthMode("login");
+      setSyncState("login");
+      throw new Error("Login required");
     }
     if (!response.ok) {
       const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -167,22 +172,55 @@ export default function KanbanBoard() {
     return response.json() as Promise<T>;
   }
 
-  async function loadCloudState(keyOverride?: string) {
-    const key = keyOverride ?? accessKey;
+  async function initializeAuth() {
+    try {
+      const statusResponse = await fetch("/api/life-os/auth");
+      if (!statusResponse.ok) throw new Error("Could not check Life OS auth status");
+      const status = (await statusResponse.json()) as { passwordConfigured: boolean };
+      if (!status.passwordConfigured) {
+        setAuthMode("setup");
+        setSyncState("login");
+        setSyncMessage("First visit: create your private Life OS password to unlock database sync.");
+        return;
+      }
+      if (sessionToken) {
+        await loadCloudState(sessionToken);
+      } else {
+        setAuthMode("login");
+        setSyncState("login");
+        setSyncMessage("Enter your Life OS password to connect this browser to Postgres.");
+      }
+    } catch (error) {
+      setAuthMode("login");
+      setSyncState("error");
+      setSyncMessage(error instanceof Error ? error.message : "Life OS auth check failed.");
+    }
+  }
+
+  async function loadCloudState(tokenOverride?: string) {
+    const token = tokenOverride ?? sessionToken;
+    if (!token) {
+      setAuthMode("login");
+      setSyncState("login");
+      setSyncMessage("Enter your Life OS password to connect this browser to Postgres.");
+      return;
+    }
     setSyncState("loading");
     setSyncMessage("Connecting to Life OS cloud database…");
     try {
-      const response = await fetch("/api/life-os", {
-        headers: key ? { "x-life-os-key": key } : undefined,
-      });
+      const response = await fetch("/api/life-os", { headers: { Authorization: `Bearer ${token}` } });
       if (response.status === 401) {
-        setSyncState("needs-key");
-        setSyncMessage("Paste your private Life OS access key to unlock cloud sync.");
+        window.localStorage.removeItem(SESSION_TOKEN_STORAGE);
+        setSessionToken("");
+        setAuthMode("login");
+        setSyncState("login");
+        setSyncMessage("Session expired. Enter your Life OS password again.");
         return;
       }
       if (!response.ok) throw new Error("Cloud database did not respond correctly");
       const cloudState = (await response.json()) as AppState;
       setState(cloudState);
+      setAuthMode("ready");
       setSyncState("synced");
       setSyncMessage("Cloud sync active. Lexa and the web app can use the same Postgres brain.");
     } catch (error) {
@@ -191,9 +229,32 @@ export default function KanbanBoard() {
     }
   }
 
-  function saveAccessKey() {
-    window.localStorage.setItem(ACCESS_KEY_STORAGE, accessKey.trim());
-    void loadCloudState(accessKey.trim());
+  async function submitPassword(event: FormEvent) {
+    event.preventDefault();
+    setAuthError("");
+    try {
+      const response = await fetch("/api/life-os/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: authMode === "setup" ? "setup" : "login", password }),
+      });
+      const body = (await response.json().catch(() => null)) as { token?: string; error?: string } | null;
+      if (!response.ok || !body?.token) throw new Error(body?.error || "Authentication failed");
+      window.localStorage.setItem(SESSION_TOKEN_STORAGE, body.token);
+      setSessionToken(body.token);
+      setPassword("");
+      await loadCloudState(body.token);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Authentication failed");
+    }
+  }
+
+  function logout() {
+    window.localStorage.removeItem(SESSION_TOKEN_STORAGE);
+    setSessionToken("");
+    setAuthMode("login");
+    setSyncState("login");
+    setSyncMessage("Logged out. Enter your Life OS password to sync again.");
   }
 
   const analytics = useMemo(() => {
@@ -221,8 +282,8 @@ export default function KanbanBoard() {
       setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === optimistic.id ? saved : task)) }));
       setSyncState("synced");
     } catch (error) {
-      setSyncState(error instanceof Error && error.message === "Access key required" ? "needs-key" : "local");
-      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+      setSyncState(error instanceof Error && error.message === "Login required" ? "login" : "local");
+      setSyncMessage("Saved locally in this browser. Log in to sync with Postgres.");
     }
   }
 
@@ -246,7 +307,7 @@ export default function KanbanBoard() {
       setSyncState("synced");
     } catch {
       setSyncState("local");
-      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+      setSyncMessage("Saved locally in this browser. Log in to sync with Postgres.");
     }
   }
 
@@ -262,7 +323,7 @@ export default function KanbanBoard() {
       setSyncState("synced");
     } catch {
       setSyncState("local");
-      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+      setSyncMessage("Saved locally in this browser. Log in to sync with Postgres.");
     }
   }
 
@@ -278,7 +339,7 @@ export default function KanbanBoard() {
       setSyncState("synced");
     } catch {
       setSyncState("local");
-      setSyncMessage("Saved locally in this browser. Add the access key to sync with Postgres.");
+      setSyncMessage("Saved locally in this browser. Log in to sync with Postgres.");
     }
   }
 
@@ -294,7 +355,7 @@ export default function KanbanBoard() {
       setSyncState("synced");
     } catch {
       setSyncState("local");
-      setSyncMessage("Status changed locally. Add the access key to sync with Postgres.");
+      setSyncMessage("Status changed locally. Log in to sync with Postgres.");
     }
   }
 
@@ -317,21 +378,27 @@ export default function KanbanBoard() {
             </div>
           </div>
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-black text-slate-950">Cloud database</p>
                 <p className={`mt-1 text-sm leading-6 ${syncState === "synced" ? "text-emerald-700" : syncState === "error" ? "text-rose-700" : "text-slate-600"}`}>{syncMessage}</p>
+                {authError && <p className="mt-1 text-sm font-bold text-rose-700">{authError}</p>}
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  value={accessKey}
-                  onChange={(event) => setAccessKey(event.target.value)}
-                  placeholder="Private access key"
-                  type="password"
-                  className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4 sm:w-72"
-                />
-                <button onClick={saveAccessKey} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">Connect</button>
-              </div>
+              {authMode === "ready" ? (
+                <button onClick={logout} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-200">Logout</button>
+              ) : (
+                <form onSubmit={submitPassword} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder={authMode === "setup" ? "Create your password" : "Life OS password"}
+                    type="password"
+                    minLength={10}
+                    className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4 sm:w-72"
+                  />
+                  <button className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">{authMode === "setup" ? "Set password" : "Login"}</button>
+                </form>
+              )}
             </div>
           </div>
         </header>
