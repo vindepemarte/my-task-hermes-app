@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import type { AppState, ClientRecord, ContentItem, Idea, Inspiration, LexaSuggestion, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
-
-type TabKey = "overview" | "tasks" | "clients" | "content" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
+import { LifeOsNav } from "@/components/life-os/LifeOsNav";
+import { MobileCommandStrip } from "@/components/life-os/MobileCommandStrip";
+import { categories, lexaModes, priorityStyle, quickTaskTags, type TabKey } from "@/components/life-os/constants";
+import { ensureTaskMetadata, taskBelongsToClient, taskStatusLabel, toggleTag, uid } from "@/components/life-os/helpers";
+import { ActionCard, Button, EmptyState, Input, MetricCard as Metric, Panel, Select, Textarea } from "@/components/life-os/ui";
 
 type SyncState = "loading" | "synced" | "local" | "login" | "error";
 type AuthMode = "checking" | "setup" | "login" | "ready";
@@ -12,28 +14,6 @@ type AuthMode = "checking" | "setup" | "login" | "ready";
 const STORAGE_KEY = "iacovici-life-os:v2";
 const SESSION_TOKEN_STORAGE = "iacovici-life-os:session-token";
 
-const categories: TimeCategory[] = [
-  "Produzione",
-  "Studio/Ricerca",
-  "Business/Admin",
-  "Salute/Energia",
-  "Relazioni/Casa",
-  "Procrastinazione/Scrolling",
-  "Riposo",
-  "Altro",
-];
-
-const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
-  { key: "overview", label: "Overview", hint: "oggi + settimana" },
-  { key: "tasks", label: "Tasks", hint: "execution board" },
-  { key: "clients", label: "Clients", hint: "active work" },
-  { key: "content", label: "Content", hint: "pipeline" },
-  { key: "analytics", label: "Analytics", hint: "time & actions" },
-  { key: "inspiration", label: "Inspiration", hint: "saved videos" },
-  { key: "projects", label: "Projects", hint: "brands & lanes" },
-  { key: "ideas", label: "Ideas", hint: "business lab" },
-  { key: "modes", label: "Lexa Modes", hint: "prompts" },
-];
 
 const seededTasks: Task[] = [
   {
@@ -43,6 +23,7 @@ const seededTasks: Task[] = [
       "Record the weekly talking-head videos from the prepared scripts. Keep each video direct, confident and useful, with room for captions and animated visual cards.",
     priority: "High",
     status: "todo",
+    tags: ["iacovici", "content"],
   },
   {
     id: "task-video-pipeline",
@@ -51,6 +32,7 @@ const seededTasks: Task[] = [
       "Process recorded videos on macOS with tight cuts, subtitles, movement, dynamic keywords and exports for YouTube Shorts and Instagram Reels.",
     priority: "High",
     status: "todo",
+    tags: ["content"],
   },
   {
     id: "task-brand-system",
@@ -59,6 +41,7 @@ const seededTasks: Task[] = [
       "Clarify promise, audience, visual rules, recurring series, free community, future course offer and tone of voice.",
     priority: "Medium",
     status: "in-progress",
+    tags: ["iacovici", "brand"],
   },
 ];
 
@@ -74,44 +57,6 @@ const defaultState: AppState = {
   dailyJournals: [],
 };
 
-const lexaModes = [
-  {
-    name: "Start my day",
-    prompt: "Lexa, buongiorno / start my day",
-    result: "Morning plan: 1 money task, 1 content task, 1 energy task, first tiny action.",
-  },
-  {
-    name: "Content mode",
-    prompt: "Lexa, content mode",
-    result: "Trend research, hooks, scripts, captions, titles, hashtags and publishing plan.",
-  },
-  {
-    name: "Anti-scroll rescue",
-    prompt: "Lexa, sto scappando / I’m scrolling",
-    result: "2-minute reset, smallest next task, timer, and accountability check-in.",
-  },
-  {
-    name: "Business partner",
-    prompt: "Lexa, business partner mode: [idea]",
-    result: "Monetization, MVP, effort, risk, next step, and whether to build, park or ignore it.",
-  },
-  {
-    name: "Evening review",
-    prompt: "Lexa, vado a dormire / I’m going to sleep",
-    result: "What happened, what was avoided, what to improve tomorrow, no guilt.",
-  },
-  {
-    name: "Deep talk",
-    prompt: "Lexa, deep talk",
-    result: "A focused conversation about fear, confidence, avoidance, identity and direction.",
-  },
-];
-
-const priorityStyle: Record<TaskPriority, string> = {
-  Low: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
-  Medium: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
-  High: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
-};
 
 function loadLocalState(): AppState {
   if (typeof window === "undefined") return defaultState;
@@ -120,7 +65,7 @@ function loadLocalState(): AppState {
     if (!saved) return defaultState;
     const parsed = JSON.parse(saved) as Partial<AppState>;
     return {
-      tasks: parsed.tasks?.length ? parsed.tasks : seededTasks,
+      tasks: parsed.tasks?.length ? ensureTaskMetadata(parsed.tasks) : seededTasks,
       logs: parsed.logs ?? [],
       inspirations: parsed.inspirations ?? [],
       ideas: parsed.ideas ?? [],
@@ -135,9 +80,6 @@ function loadLocalState(): AppState {
   }
 }
 
-function uid(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 export default function KanbanBoard() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -149,7 +91,9 @@ export default function KanbanBoard() {
   const [syncState, setSyncState] = useState<SyncState>("loading");
   const [syncMessage, setSyncMessage] = useState("Checking Life OS login…");
 
-  const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "Medium" as TaskPriority });
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "Medium" as TaskPriority, clientId: "", clientProjectId: "", dueDate: "", tags: [] as string[] });
+  const [taskFilter, setTaskFilter] = useState({ status: "all", clientId: "all", tag: "all" });
+  const [selectedClientKey, setSelectedClientKey] = useState("");
   const [logForm, setLogForm] = useState({ slot: "", category: "Produzione" as TimeCategory, hours: "2", note: "", energy: "7" });
   const [inspoForm, setInspoForm] = useState({ url: "", reason: "", pattern: "", platform: "Instagram" as Inspiration["platform"] });
   const [ideaForm, setIdeaForm] = useState({ title: "", note: "", score: "7" });
@@ -294,13 +238,17 @@ export default function KanbanBoard() {
     return { activeTasks, topThree, done, nextTask, latestEnergy };
   }, [analytics.avgEnergy, state.logs, state.tasks]);
 
+  const allTaskTags = useMemo(() => [...new Set(state.tasks.flatMap((task) => task.tags ?? []))].sort(), [state.tasks]);
+
   const clientMap = useMemo(() => {
     const structuredClients = state.clients.map((client) => ({
       client: client.name,
       record: client,
       projects: state.clientProjects.filter((project) => project.clientId === client.id),
-      tasks: state.tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(client.name.toLowerCase())),
+      tasks: state.tasks.filter((task) => taskBelongsToClient(task, client)),
       logs: state.logs.filter((log) => log.note.toLowerCase().includes(client.name.toLowerCase())),
+      content: state.contentItems.filter((item) => `${item.brand} ${item.title} ${item.scriptNotes}`.toLowerCase().includes(client.name.toLowerCase())),
+      suggestions: state.lexaSuggestions.filter((suggestion) => suggestion.relatedEntityId === client.id || `${suggestion.title} ${suggestion.body}`.toLowerCase().includes(client.name.toLowerCase())),
     }));
     if (structuredClients.length) return structuredClients;
     const fallbackClients = ["ABC Vetrate Panoramiche", "ProHappyA", "Catalin"];
@@ -308,13 +256,29 @@ export default function KanbanBoard() {
       client,
       record: null as ClientRecord | null,
       projects: [],
-      tasks: state.tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(client.toLowerCase())),
+      tasks: state.tasks.filter((task) => task.tags.some((tag) => client.toLowerCase().includes(tag.toLowerCase())) || `${task.title} ${task.description}`.toLowerCase().includes(client.toLowerCase())),
       logs: state.logs.filter((log) => log.note.toLowerCase().includes(client.toLowerCase())),
+      content: state.contentItems.filter((item) => `${item.brand} ${item.title}`.toLowerCase().includes(client.toLowerCase())),
+      suggestions: state.lexaSuggestions.filter((suggestion) => `${suggestion.title} ${suggestion.body}`.toLowerCase().includes(client.toLowerCase())),
     }));
-  }, [state.clientProjects, state.clients, state.logs, state.tasks]);
+  }, [state.clientProjects, state.clients, state.contentItems, state.lexaSuggestions, state.logs, state.tasks]);
+
+  const selectedClient = clientMap.find((client) => (client.record?.id || client.client) === selectedClientKey) ?? clientMap[0];
+
+  const visibleTasks = useMemo(() => {
+    return state.tasks.filter((task) => {
+      if (taskFilter.status !== "all" && task.status !== taskFilter.status) return false;
+      if (taskFilter.clientId !== "all") {
+        const client = state.clients.find((item) => item.id === taskFilter.clientId);
+        if (client && !taskBelongsToClient(task, client)) return false;
+      }
+      if (taskFilter.tag !== "all" && !task.tags.includes(taskFilter.tag)) return false;
+      return true;
+    });
+  }, [state.clients, state.tasks, taskFilter]);
 
   const contentPipeline = useMemo(() => {
-    const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(`${task.title} ${task.description}`));
+    const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content|zâmbetin|youtube/i.test(`${task.title} ${task.description} ${task.tags.join(" ")}`));
     const contentLogs = state.logs.filter((log) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(log.note));
     return { items: state.contentItems, contentTasks, contentLogs, inspirations: state.inspirations.slice(0, 6) };
   }, [state.contentItems, state.inspirations, state.logs, state.tasks]);
@@ -328,9 +292,24 @@ export default function KanbanBoard() {
   async function addTask(event: FormEvent) {
     event.preventDefault();
     if (!taskForm.title.trim()) return;
-    const optimistic: Task = { id: uid("task"), title: taskForm.title.trim(), description: taskForm.description.trim(), priority: taskForm.priority, status: "todo" };
+    const selectedClient = state.clients.find((client) => client.id === taskForm.clientId);
+    const selectedProject = state.clientProjects.find((project) => project.id === taskForm.clientProjectId);
+    const optimistic: Task = {
+      id: uid("task"),
+      title: taskForm.title.trim(),
+      description: taskForm.description.trim(),
+      priority: taskForm.priority,
+      status: "todo",
+      clientId: taskForm.clientId || undefined,
+      clientName: selectedClient?.name,
+      clientProjectId: taskForm.clientProjectId || undefined,
+      clientProjectTitle: selectedProject?.title,
+      dueDate: taskForm.dueDate || undefined,
+      tags: taskForm.tags,
+      source: "web",
+    };
     setState((current) => ({ ...current, tasks: [optimistic, ...current.tasks] }));
-    setTaskForm({ title: "", description: "", priority: "Medium" });
+    setTaskForm({ title: "", description: "", priority: "Medium", clientId: "", clientProjectId: "", dueDate: "", tags: [] });
     try {
       const saved = await apiFetch<Task>("/api/life-os", { method: "POST", body: JSON.stringify({ type: "task", data: optimistic }) });
       setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === optimistic.id ? saved : task)) }));
@@ -457,14 +436,8 @@ export default function KanbanBoard() {
           </div>
         </header>
 
-        <nav className="grid gap-2 rounded-3xl border border-white/70 bg-white/80 p-2 shadow-lg shadow-slate-200/60 backdrop-blur sm:grid-cols-2 lg:grid-cols-9">
-          {tabs.map((tab) => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`rounded-2xl px-4 py-3 text-left transition ${activeTab === tab.key ? "bg-slate-950 text-white shadow-xl shadow-slate-300" : "text-slate-600 hover:bg-slate-100"}`}>
-              <span className="block text-sm font-black">{tab.label}</span>
-              <span className="text-xs opacity-70">{tab.hint}</span>
-            </button>
-          ))}
-        </nav>
+        <MobileCommandStrip nextTaskTitle={commandCenter.nextTask?.title || "Choose one money/content action"} energy={commandCenter.latestEnergy || 0} onChangeTab={setActiveTab} />
+        <LifeOsNav activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "overview" && (
           <section className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
@@ -507,72 +480,143 @@ export default function KanbanBoard() {
         )}
 
         {activeTab === "tasks" && (
-          <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-            <Panel title="Add task" subtitle="Execution only, not fantasy planning.">
+          <section className="grid gap-6 xl:grid-cols-[380px_1fr]">
+            <Panel title="Add task" subtitle="Attach every commitment to a client, project and source of truth.">
               <form onSubmit={addTask} className="space-y-3">
                 <Input value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} placeholder="Task title" />
-                <Textarea value={taskForm.description} onChange={(value) => setTaskForm({ ...taskForm, description: value })} placeholder="Why it matters / next step" />
-                <Select value={taskForm.priority} onChange={(value) => setTaskForm({ ...taskForm, priority: value as TaskPriority })} options={["Low", "Medium", "High"]} />
-                <button className="w-full rounded-2xl bg-slate-950 px-4 py-3 font-black text-white">Add task</button>
-              </form>
-            </Panel>
-            <div className="grid gap-4 lg:grid-cols-3">
-              {(["todo", "in-progress", "done"] as TaskStatus[]).map((status) => (
-                <Panel key={status} title={status.replace("-", " ")} subtitle={`${state.tasks.filter((task) => task.status === status).length} items`}>
-                  <div className="space-y-3">
-                    {state.tasks.filter((task) => task.status === status).map((task) => (
-                      <article key={task.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-3"><h3 className="font-black text-slate-950">{task.title}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span></div>
-                        <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
-                        <button onClick={() => void cycleTask(task.id)} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">Move status</button>
-                      </article>
+                <Textarea value={taskForm.description} onChange={(value) => setTaskForm({ ...taskForm, description: value })} placeholder="Why it matters / next concrete step" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Select value={taskForm.priority} onChange={(value) => setTaskForm({ ...taskForm, priority: value as TaskPriority })} options={["Low", "Medium", "High"]} />
+                  <Input value={taskForm.dueDate} onChange={(value) => setTaskForm({ ...taskForm, dueDate: value })} placeholder="Due date YYYY-MM-DD" />
+                </div>
+                <select value={taskForm.clientId} onChange={(event) => setTaskForm({ ...taskForm, clientId: event.target.value, clientProjectId: "" })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
+                  <option value="">No client / personal</option>
+                  {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                </select>
+                <select value={taskForm.clientProjectId} onChange={(event) => setTaskForm({ ...taskForm, clientProjectId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
+                  <option value="">No project</option>
+                  {state.clientProjects.filter((project) => taskForm.clientId && project.clientId === taskForm.clientId).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+                </select>
+                <div className="rounded-3xl bg-slate-50 p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Quick tags</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {quickTaskTags.map((tag) => (
+                      <button type="button" key={tag} onClick={() => setTaskForm({ ...taskForm, tags: toggleTag(taskForm.tags, tag) })} className={`min-h-10 rounded-full px-3 text-xs font-black ${taskForm.tags.includes(tag) ? "bg-slate-950 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{tag}</button>
                     ))}
                   </div>
-                </Panel>
-              ))}
+                </div>
+                <Button className="w-full bg-slate-950 text-white hover:bg-indigo-700">Add task</Button>
+              </form>
+            </Panel>
+            <div className="space-y-4 min-w-0">
+              <Panel title="Task filters" subtitle={`${visibleTasks.length} visible of ${state.tasks.length} tracked commitments`}>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Select value={taskFilter.status} onChange={(value) => setTaskFilter({ ...taskFilter, status: value })} options={["all", "todo", "in-progress", "done"]} />
+                  <select value={taskFilter.clientId} onChange={(event) => setTaskFilter({ ...taskFilter, clientId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">
+                    <option value="all">all clients</option>
+                    {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                  </select>
+                  <Select value={taskFilter.tag} onChange={(value) => setTaskFilter({ ...taskFilter, tag: value })} options={["all", ...allTaskTags]} />
+                </div>
+              </Panel>
+              <div className="grid gap-4 lg:grid-cols-3">
+                {(["todo", "in-progress", "done"] as TaskStatus[]).map((status) => (
+                  <Panel key={status} title={status.replace("-", " ")} subtitle={`${visibleTasks.filter((task) => task.status === status).length} items`}>
+                    <div className="space-y-3">
+                      {visibleTasks.filter((task) => task.status === status).map((task) => (
+                        <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />
+                      ))}
+                      {visibleTasks.filter((task) => task.status === status).length === 0 && <EmptyState text="Nothing here. Good — keep the lane clean." />}
+                    </div>
+                  </Panel>
+                ))}
+              </div>
             </div>
           </section>
         )}
 
 
         {activeTab === "clients" && (
-          <section className="grid gap-6 lg:grid-cols-3">
-            {clientMap.map((client) => (
-              <Panel key={client.client} title={client.client} subtitle={`${client.projects.length} projects • ${client.tasks.length} tasks • ${client.logs.length} logs`}>
-                <div className="space-y-3">
-                  {client.record && (
-                    <article className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                      <div className="flex flex-wrap gap-2"><span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{client.record.status}</span><span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{client.record.stage}</span></div>
-                      {client.record.notes && <p className="mt-3">{client.record.notes}</p>}
-                      {client.record.nextAction && <p className="mt-3 font-bold text-slate-950">Next: {client.record.nextAction}</p>}
-                    </article>
-                  )}
-                  {client.projects.map((project) => <ProjectMini key={project.id} project={project} />)}
-                  {client.tasks.length === 0 && client.logs.length === 0 && client.projects.length === 0 && <EmptyState text="No tracked activity yet. Mention this client in Telegram and Lexa will connect the dots." />}
-                  {client.tasks.slice(0, 5).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
-                  {client.logs.slice(0, 3).map((log) => <p key={log.id} className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+          <section className="grid gap-6 xl:grid-cols-[320px_1fr]">
+            <Panel title="Client command" subtitle="Pick the account, then execute the next visible commitment.">
+              <div className="space-y-2">
+                {clientMap.map((client) => (
+                  <button key={client.client} onClick={() => setSelectedClientKey(client.record?.id || client.client)} className={`w-full rounded-2xl p-3 text-left transition ${selectedClient?.client === client.client ? "bg-slate-950 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}`}>
+                    <span className="block break-words text-sm font-black">{client.client}</span>
+                    <span className="mt-1 block text-xs opacity-70">{client.projects.length} projects • {client.tasks.filter((task) => task.status !== "done").length} open • {client.logs.length} logs</span>
+                  </button>
+                ))}
+              </div>
+            </Panel>
+            {selectedClient && (
+              <Panel title={selectedClient.client} subtitle={`${selectedClient.projects.length} projects • ${selectedClient.tasks.length} tasks • ${selectedClient.logs.length} logs • ${selectedClient.content.length} content items`}>
+                <div className="grid gap-4 lg:grid-cols-[1fr_.9fr]">
+                  <article className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{selectedClient.record?.status || "tracked"}</span>
+                      <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{selectedClient.record?.stage || "relationship-first"}</span>
+                      {selectedClient.record?.priority && <span className={`rounded-full px-2 py-1 text-xs font-black uppercase ${priorityStyle[selectedClient.record.priority]}`}>{selectedClient.record.priority}</span>}
+                    </div>
+                    {selectedClient.record?.notes && <p className="mt-3 break-words whitespace-pre-wrap">{selectedClient.record.notes}</p>}
+                    {selectedClient.record?.nextAction && <p className="mt-3 rounded-2xl bg-white p-3 font-black text-slate-950">Next: {selectedClient.record.nextAction}</p>}
+                    {selectedClient.record?.contactChannel && <p className="mt-3 break-all text-xs font-bold uppercase tracking-wide text-slate-400">{selectedClient.record.contactChannel}</p>}
+                  </article>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Metric label="Open tasks" value={`${selectedClient.tasks.filter((task) => task.status !== "done").length}`} />
+                    <Metric label="Projects" value={`${selectedClient.projects.length}`} />
+                    <Metric label="Signals" value={`${selectedClient.logs.length + selectedClient.content.length}`} />
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Projects</h3>
+                    {selectedClient.projects.map((project) => <ProjectMini key={project.id} project={project} />)}
+                    {selectedClient.projects.length === 0 && <EmptyState text="No project attached yet." />}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Tasks</h3>
+                    {selectedClient.tasks.slice(0, 8).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
+                    {selectedClient.tasks.length === 0 && <EmptyState text="No tasks attached. Add one from Tasks with this client selected." />}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Logs, content & Lexa</h3>
+                    {selectedClient.logs.slice(0, 4).map((log) => <p key={log.id} className="break-words rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                    {selectedClient.content.slice(0, 3).map((item) => <ContentMini key={item.id} item={item} />)}
+                    {selectedClient.suggestions.slice(0, 3).map((suggestion) => <SuggestionMini key={suggestion.id} suggestion={suggestion} />)}
+                    {selectedClient.logs.length + selectedClient.content.length + selectedClient.suggestions.length === 0 && <EmptyState text="No recent signal yet." />}
+                  </div>
                 </div>
               </Panel>
-            ))}
+            )}
           </section>
         )}
 
         {activeTab === "content" && (
-          <section className="grid gap-6 lg:grid-cols-[1fr_.85fr]">
-            <Panel title="Content pipeline" subtitle="Iacovici.it, vindepemarte and reusable assets.">
+          <section className="grid gap-6 xl:grid-cols-[1fr_.85fr]">
+            <Panel title="Content command room" subtitle="Separate Iacovici.it, vindepemarte and client content without losing production momentum.">
               <div className="grid gap-4 md:grid-cols-2">
                 {contentPipeline.items.length === 0 && contentPipeline.contentTasks.length === 0 && <EmptyState text="No content tasks yet. Tell Lexa when a video is scripted, recorded, edited or published." />}
                 {contentPipeline.items.map((item) => <ContentMini key={item.id} item={item} />)}
                 {contentPipeline.contentTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
               </div>
             </Panel>
-            <Panel title="Signals & ideas" subtitle="Recent content work and saved inspiration.">
-              <div className="space-y-3">
-                {contentPipeline.contentLogs.slice(0, 5).map((log) => <p key={log.id} className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
-                {contentPipeline.inspirations.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block rounded-2xl bg-fuchsia-50 p-3 text-sm font-bold text-fuchsia-800">{item.platform}: {item.reason || item.url}</a>)}
-                {contentPipeline.contentLogs.length === 0 && contentPipeline.inspirations.length === 0 && <EmptyState text="No content signals yet." />}
-              </div>
-            </Panel>
+            <div className="space-y-6 min-w-0">
+              <Panel title="Signals" subtitle="Research should become output, not another scroll loop.">
+                <div className="space-y-3">
+                  {contentPipeline.contentLogs.slice(0, 5).map((log) => <p key={log.id} className="break-words rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                  {contentPipeline.inspirations.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block break-words rounded-2xl bg-fuchsia-50 p-3 text-sm font-bold text-fuchsia-800">{item.platform}: {item.reason || item.url}</a>)}
+                  {contentPipeline.contentLogs.length === 0 && contentPipeline.inspirations.length === 0 && <EmptyState text="No content signals yet." />}
+                </div>
+              </Panel>
+              <Panel title="Lexa packaging rules" subtitle="Use this as the creative operating system guardrail.">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ActionCard title="Iacovici.it" body="Italian + English practical AI workflow content. Save proof, prompt, screen recording and CTA together." />
+                  <ActionCard title="vindepemarte" body="Music/lore lane stays separate from comedy. Track language, audience signal and release asset status." />
+                  <ActionCard title="Zâmbetin TV" body="Romanian kids channel: calm, playful, 2–4 years old. Long video first, Shorts pack after." />
+                  <ActionCard title="Anti-scroll rule" body="Every saved inspiration needs a pattern: hook, pacing, visual device or offer angle." />
+                </div>
+              </Panel>
+            </div>
           </section>
         )}
 
@@ -631,23 +675,31 @@ export default function KanbanBoard() {
         )}
 
         {activeTab === "projects" && (
-          <section className="grid gap-6 lg:grid-cols-[1fr_.75fr]">
-            <Panel title="Project lanes" subtitle="One private brain, separate public brands.">
+          <section className="grid gap-6 xl:grid-cols-[1fr_.75fr]">
+            <Panel title="Business project lanes" subtitle="Client delivery, internal products and public brands in one clean map.">
               <div className="grid gap-4 md:grid-cols-2">
-                {projectMap.projects.length === 0 && <EmptyState text="No project lanes yet. Lexa can turn your brands, products and content lanes into tracked projects here." />}
+                {state.clientProjects.map((project) => <ProjectMini key={project.id} project={project} />)}
                 {projectMap.projects.map((project) => (
                   <ProjectCard key={project.id} item={project} kind="project" />
                 ))}
+                {state.clientProjects.length === 0 && projectMap.projects.length === 0 && <EmptyState text="No project lanes yet. Lexa can turn your brands, products and content lanes into tracked projects here." />}
               </div>
             </Panel>
-            <Panel title="Accounts & handles" subtitle="Where each public lane lives.">
-              <div className="space-y-4">
-                {projectMap.accounts.length === 0 && <EmptyState text="No accounts saved yet. Add handles, channels and fanpages as Account entries." />}
-                {projectMap.accounts.map((account) => (
-                  <ProjectCard key={account.id} item={account} kind="account" />
-                ))}
-              </div>
-            </Panel>
+            <div className="space-y-6 min-w-0">
+              <Panel title="Money-first focus" subtitle="Make client commitments impossible to miss.">
+                <div className="space-y-3">
+                  {clientMap.slice(0, 5).map((client) => <ActionCard key={client.client} title={client.client} body={`Next: ${client.record?.nextAction || "define next action"}\nOpen tasks: ${client.tasks.filter((task) => task.status !== "done").length}\nProjects: ${client.projects.length}`} />)}
+                </div>
+              </Panel>
+              <Panel title="Accounts & handles" subtitle="Where each public lane lives.">
+                <div className="space-y-4">
+                  {projectMap.accounts.length === 0 && <EmptyState text="No accounts saved yet. Add handles, channels and fanpages as Account entries." />}
+                  {projectMap.accounts.map((account) => (
+                    <ProjectCard key={account.id} item={account} kind="account" />
+                  ))}
+                </div>
+              </Panel>
+            </div>
           </section>
         )}
 
@@ -713,14 +765,30 @@ function ProjectCard({ item, kind }: { item: Idea; kind: "project" | "account" }
 
 function TaskMini({ task, onMove }: { task: Task; onMove: () => void }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-black text-slate-950">{task.title}</h3>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
+        <h3 className="min-w-0 break-words font-black text-slate-950">{task.title}</h3>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
       </div>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
-      <button onClick={onMove} className="mt-4 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">{task.status}</button>
+      <TaskMetaBadges task={task} />
+      {task.dueDate && <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-700">Due {task.dueDate}</p>}
+      <p className="mt-3 break-words whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
+      <button onClick={onMove} className="mt-4 min-h-11 rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">{taskStatusLabel(task.status)}</button>
     </article>
+  );
+}
+
+function TaskMetaBadges({ task }: { task: Task }) {
+  const chips = [task.clientName, task.clientProjectTitle, ...task.tags].filter(Boolean).slice(0, 6);
+  if (!chips.length) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <span key={chip} className="max-w-full break-words rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-black text-indigo-700 ring-1 ring-indigo-100">
+          {chip}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -761,32 +829,4 @@ function SuggestionMini({ suggestion }: { suggestion: LexaSuggestion }) {
       {suggestion.body && <p className="mt-1 text-indigo-900/80">{suggestion.body}</p>}
     </article>
   );
-}
-
-function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div className={`rounded-3xl p-4 ring-1 ${danger ? "bg-rose-50 text-rose-950 ring-rose-100" : "bg-slate-950 text-white ring-slate-800"}`}><p className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>;
-}
-
-function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
-  return <section className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/70 backdrop-blur md:p-6"><div className="mb-5"><h2 className="text-xl font-black capitalize text-slate-950">{title}</h2><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</section>;
-}
-
-function ActionCard({ title, body }: { title: string; body: string }) {
-  return <article className="rounded-3xl border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{body}</p></article>;
-}
-
-function EmptyState({ text }: { text: string }) {
-  return <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold leading-6 text-slate-500 md:col-span-2">{text}</div>;
-}
-
-function Input({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4" />;
-}
-
-function Textarea({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-950 outline-none ring-indigo-200 transition placeholder:text-slate-400 focus:ring-4" />;
-}
-
-function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) {
-  return <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
 }

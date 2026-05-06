@@ -19,6 +19,13 @@ export type Task = {
   description: string;
   priority: TaskPriority;
   status: TaskStatus;
+  clientId?: string;
+  clientName?: string;
+  clientProjectId?: string;
+  clientProjectTitle?: string;
+  dueDate?: string;
+  tags: string[];
+  source?: string;
 };
 
 export type TimeLog = {
@@ -137,6 +144,7 @@ const defaultTasks: Task[] = [
     description: "Record the weekly talking-head videos from the prepared scripts. Keep them concise, clear and energetic, with space for captions and animated visual cards.",
     priority: "High",
     status: "todo",
+    tags: ["iacovici", "content"],
   },
   {
     id: "task-video-pipeline",
@@ -144,6 +152,7 @@ const defaultTasks: Task[] = [
     description: "Process recorded videos on macOS with tight cuts, captions, camera movement, animated keywords and exports for Shorts/Reels.",
     priority: "High",
     status: "todo",
+    tags: ["content"],
   },
   {
     id: "task-brand-system",
@@ -151,6 +160,7 @@ const defaultTasks: Task[] = [
     description: "Clarify promise, audience, visual rules, recurring series, free community, future course offer and tone of voice.",
     priority: "Medium",
     status: "in-progress",
+    tags: ["iacovici", "brand"],
   },
 ];
 
@@ -171,7 +181,10 @@ async function ensureDefaultTasks() {
   const countResult = await db.query("select count(*)::int as count from life_os.tasks");
   if (Number(countResult.rows[0]?.count || 0) > 0) return;
   for (const task of defaultTasks) {
-    await db.query("insert into life_os.tasks (title, notes, priority, status) values ($1, $2, $3, $4)", [task.title, task.description, priorityToDb(task.priority), taskStatusToDb(task.status)]);
+    await db.query(
+      "insert into life_os.tasks (title, notes, priority, status, tags, source) values ($1, $2, $3, $4, $5, 'seed')",
+      [task.title, task.description, priorityToDb(task.priority), taskStatusToDb(task.status), task.tags],
+    );
   }
 }
 
@@ -221,11 +234,38 @@ function dateOnly(value: string | Date | null | undefined) {
   return value ? new Date(value).toISOString().slice(0, 10) : "";
 }
 
+function taskFromDb(row: Record<string, unknown>): Task {
+  return {
+    id: String(row.id),
+    title: String(row.title || ""),
+    description: String(row.notes || ""),
+    priority: priorityFromDb(String(row.priority || "medium")),
+    status: taskStatusFromDb(String(row.status || "todo")),
+    clientId: row.client_id ? String(row.client_id) : undefined,
+    clientName: row.client_name ? String(row.client_name) : undefined,
+    clientProjectId: row.client_project_id ? String(row.client_project_id) : undefined,
+    clientProjectTitle: row.client_project_title ? String(row.client_project_title) : undefined,
+    dueDate: row.due_date ? dateOnly(row.due_date as string | Date) : undefined,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    source: row.source ? String(row.source) : undefined,
+  };
+}
+
 export async function getLifeOsState(): Promise<AppState> {
   const db = getLifeOsPool();
   await ensureDefaultTasks();
   const [tasks, logs, inspirations, ideas, clients, clientProjects, contentItems, lexaSuggestions, dailyJournals] = await Promise.all([
-    db.query("select id::text, title, notes, priority, status from life_os.tasks order by updated_at desc, created_at desc"),
+    db.query(`
+      select t.id::text, t.title, t.notes, t.priority, t.status,
+             t.client_id::text, c.name as client_name,
+             t.client_project_id::text, cp.title as client_project_title,
+             t.due_date,
+             coalesce(t.tags, '{}'::text[]) as tags, t.source
+      from life_os.tasks t
+      left join life_os.clients c on c.id = t.client_id
+      left join life_os.client_projects cp on cp.id = t.client_project_id
+      order by t.updated_at desc, t.created_at desc
+    `),
     db.query("select id::text, log_date, start_time, end_time, category, hours, note, energy from life_os.time_logs order by log_date desc, created_at desc"),
     db.query("select id::text, url, platform, title, saved_reason, pattern_notes, status from life_os.inspiration_links order by updated_at desc, created_at desc"),
     db.query("select id::text, title, description, score, status, lexa_comment from life_os.business_ideas order by updated_at desc, created_at desc"),
@@ -238,7 +278,7 @@ export async function getLifeOsState(): Promise<AppState> {
 
   return {
     tasks: tasks.rows.length
-      ? tasks.rows.map((row) => ({ id: row.id, title: row.title, description: row.notes || "", priority: priorityFromDb(row.priority), status: taskStatusFromDb(row.status) }))
+      ? tasks.rows.map(taskFromDb)
       : defaultTasks,
     logs: logs.rows.map((row) => ({ id: row.id, date: dateOnly(row.log_date), slot: [row.start_time?.slice(0, 5), row.end_time?.slice(0, 5)].filter(Boolean).join("–") || "manual entry", category: row.category, hours: Number(row.hours || 0), note: row.note || "", energy: Number(row.energy || 0) })),
     inspirations: inspirations.rows.map((row) => ({ id: row.id, url: row.url, reason: row.saved_reason || row.title || "", pattern: row.pattern_notes || "", platform: platformFromDb(row.platform), status: row.status === "used" ? "adapted" : row.status })),
@@ -252,9 +292,23 @@ export async function getLifeOsState(): Promise<AppState> {
 }
 
 export async function createTask(input: Omit<Task, "id" | "status">) {
-  const result = await getLifeOsPool().query("insert into life_os.tasks (title, notes, priority, status) values ($1, $2, $3, 'todo') returning id::text, title, notes, priority, status", [input.title, input.description, priorityToDb(input.priority)]);
-  const row = result.rows[0];
-  return { id: row.id, title: row.title, description: row.notes || "", priority: priorityFromDb(row.priority), status: taskStatusFromDb(row.status) } satisfies Task;
+  const result = await getLifeOsPool().query(
+    `with inserted as (
+       insert into life_os.tasks (title, notes, priority, status, client_id, client_project_id, due_date, tags, source)
+       values ($1, $2, $3, 'todo', $4, $5, $6, $7, $8)
+       returning id, title, notes, priority, status, client_id, client_project_id, due_date, tags, source
+     )
+     select inserted.id::text, inserted.title, inserted.notes, inserted.priority, inserted.status,
+            inserted.client_id::text, c.name as client_name,
+            inserted.client_project_id::text, cp.title as client_project_title,
+            inserted.due_date,
+            inserted.tags, inserted.source
+     from inserted
+     left join life_os.clients c on c.id = inserted.client_id
+     left join life_os.client_projects cp on cp.id = inserted.client_project_id`,
+    [input.title, input.description, priorityToDb(input.priority), input.clientId || null, input.clientProjectId || null, input.dueDate || null, input.tags || [], input.source || "web"],
+  );
+  return taskFromDb(result.rows[0]);
 }
 
 export async function createTimeLog(input: Omit<TimeLog, "id" | "date"> & { date?: string; source?: string }) {
@@ -337,8 +391,22 @@ export async function upsertDailyJournal(input: Omit<DailyJournal, "id">) {
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus) {
-  const result = await getLifeOsPool().query("update life_os.tasks set status=$2 where id=$1 returning id::text, title, notes, priority, status", [id, taskStatusToDb(status)]);
+  const result = await getLifeOsPool().query(
+    `with updated as (
+       update life_os.tasks set status=$2 where id=$1
+       returning id, title, notes, priority, status, client_id, client_project_id, due_date, tags, source
+     )
+     select updated.id::text, updated.title, updated.notes, updated.priority, updated.status,
+            updated.client_id::text, c.name as client_name,
+            updated.client_project_id::text, cp.title as client_project_title,
+            updated.due_date,
+            updated.tags, updated.source
+     from updated
+     left join life_os.clients c on c.id = updated.client_id
+     left join life_os.client_projects cp on cp.id = updated.client_project_id`,
+    [id, taskStatusToDb(status)],
+  );
   const row = result.rows[0];
   if (!row) throw new Error("Task not found");
-  return { id: row.id, title: row.title, description: row.notes || "", priority: priorityFromDb(row.priority), status: taskStatusFromDb(row.status) } satisfies Task;
+  return taskFromDb(row);
 }
