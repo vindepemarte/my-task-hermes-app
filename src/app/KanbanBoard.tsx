@@ -4,8 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AppState, ClientRecord, ContentItem, Idea, Inspiration, LexaSuggestion, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
 import { LifeOsNav } from "@/components/life-os/LifeOsNav";
 import { MobileCommandStrip } from "@/components/life-os/MobileCommandStrip";
-import { categories, lexaModes, priorityStyle, quickTaskTags, type TabKey } from "@/components/life-os/constants";
-import { ensureTaskMetadata, taskBelongsToClient, taskStatusLabel, toggleTag, uid } from "@/components/life-os/helpers";
+import { categories, lexaModes, priorityStyle, type TabKey } from "@/components/life-os/constants";
+import { ensureTaskMetadata, taskBelongsToClient, taskStatusLabel, uid } from "@/components/life-os/helpers";
 import { ActionCard, Button, EmptyState, Input, MetricCard as Metric, Panel, Select, Textarea } from "@/components/life-os/ui";
 
 type SyncState = "loading" | "synced" | "local" | "login" | "error";
@@ -277,6 +277,10 @@ export default function KanbanBoard() {
     });
   }, [state.clients, state.tasks, taskFilter]);
 
+  const openVisibleTasks = visibleTasks.filter((task) => task.status !== "done");
+  const doneVisibleTasks = visibleTasks.filter((task) => task.status === "done");
+  const urgentVisibleTasks = openVisibleTasks.filter((task) => task.priority === "High").slice(0, 3);
+
   const contentPipeline = useMemo(() => {
     const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content|zâmbetin|youtube/i.test(`${task.title} ${task.description} ${task.tags.join(" ")}`));
     const contentLogs = state.logs.filter((log) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(log.note));
@@ -394,24 +398,25 @@ export default function KanbanBoard() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_34rem),linear-gradient(135deg,#f8fafc,#eef2ff)] text-slate-950">
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-2xl shadow-slate-200/80 backdrop-blur md:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-sm font-black uppercase tracking-[0.3em] text-indigo-600">Iacovici.it Life OS</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Tasks, Analytics & Lexa accountability.</h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                A private cloud-synced dashboard for execution, time tracking, saved content inspiration, business ideas and the exact prompts to activate Lexa modes.
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-200/60 backdrop-blur md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-indigo-600">Iacovici.it Life OS</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Today: one clear next move.</h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
+                This screen should reduce noise, not create it. Open the full archive only when you need context.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:w-[30rem]">
-              <Metric label="Tracked hours" value={`${analytics.totalHours.toFixed(1)}h`} />
-              <Metric label="Production" value={`${analytics.productionHours.toFixed(1)}h`} />
-              <Metric label="Scrolling" value={`${analytics.scrollingHours.toFixed(1)}h`} danger />
+            <div className="grid grid-cols-3 gap-2 lg:w-[24rem]">
+              <Metric label="Open" value={`${commandCenter.activeTasks.length}`} />
+              <Metric label="Done" value={`${state.tasks.filter((task) => task.status === "done").length}`} />
+              <Metric label="Scroll" value={`${analytics.scrollingHours.toFixed(1)}h`} danger />
             </div>
           </div>
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <details className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <summary className="cursor-pointer text-sm font-black text-slate-700">Sync + login</summary>
+            <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-black text-slate-950">Cloud database</p>
                 <p className={`mt-1 text-sm leading-6 ${syncState === "synced" ? "text-emerald-700" : syncState === "error" ? "text-rose-700" : "text-slate-600"}`}>{syncMessage}</p>
@@ -433,7 +438,7 @@ export default function KanbanBoard() {
                 </form>
               )}
             </div>
-          </div>
+          </details>
         </header>
 
         <MobileCommandStrip nextTaskTitle={commandCenter.nextTask?.title || "Choose one money/content action"} energy={commandCenter.latestEnergy || 0} onChangeTab={setActiveTab} />
@@ -480,58 +485,71 @@ export default function KanbanBoard() {
         )}
 
         {activeTab === "tasks" && (
-          <section className="grid gap-6 xl:grid-cols-[380px_1fr]">
-            <Panel title="Add task" subtitle="Attach every commitment to a client, project and source of truth.">
-              <form onSubmit={addTask} className="space-y-3">
-                <Input value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} placeholder="Task title" />
-                <Textarea value={taskForm.description} onChange={(value) => setTaskForm({ ...taskForm, description: value })} placeholder="Why it matters / next concrete step" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Select value={taskForm.priority} onChange={(value) => setTaskForm({ ...taskForm, priority: value as TaskPriority })} options={["Low", "Medium", "High"]} />
-                  <Input value={taskForm.dueDate} onChange={(value) => setTaskForm({ ...taskForm, dueDate: value })} placeholder="Due date YYYY-MM-DD" />
-                </div>
-                <select value={taskForm.clientId} onChange={(event) => setTaskForm({ ...taskForm, clientId: event.target.value, clientProjectId: "" })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
-                  <option value="">No client / personal</option>
+          <section className="grid gap-5">
+            <Panel title="Focus board" subtitle={`${openVisibleTasks.length} open commitments. Done items stay hidden unless you ask for them.`}>
+              <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+                <Select value={taskFilter.status === "done" ? "all" : taskFilter.status} onChange={(value) => setTaskFilter({ ...taskFilter, status: value })} options={["all", "todo", "in-progress"]} />
+                <select value={taskFilter.clientId} onChange={(event) => setTaskFilter({ ...taskFilter, clientId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">
+                  <option value="all">all clients</option>
                   {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
                 </select>
-                <select value={taskForm.clientProjectId} onChange={(event) => setTaskForm({ ...taskForm, clientProjectId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
-                  <option value="">No project</option>
-                  {state.clientProjects.filter((project) => taskForm.clientId && project.clientId === taskForm.clientId).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
-                </select>
-                <div className="rounded-3xl bg-slate-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Quick tags</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {quickTaskTags.map((tag) => (
-                      <button type="button" key={tag} onClick={() => setTaskForm({ ...taskForm, tags: toggleTag(taskForm.tags, tag) })} className={`min-h-10 rounded-full px-3 text-xs font-black ${taskForm.tags.includes(tag) ? "bg-slate-950 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{tag}</button>
-                    ))}
+                <button onClick={() => setTaskFilter({ status: "all", clientId: "all", tag: "all" })} className="min-h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700">Reset</button>
+              </div>
+              {urgentVisibleTasks.length > 0 && (
+                <div className="mt-4 rounded-3xl bg-rose-50 p-4 ring-1 ring-rose-100">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">Needs attention</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    {urgentVisibleTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
                   </div>
                 </div>
-                <Button className="w-full bg-slate-950 text-white hover:bg-indigo-700">Add task</Button>
-              </form>
+              )}
             </Panel>
-            <div className="space-y-4 min-w-0">
-              <Panel title="Task filters" subtitle={`${visibleTasks.length} visible of ${state.tasks.length} tracked commitments`}>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Select value={taskFilter.status} onChange={(value) => setTaskFilter({ ...taskFilter, status: value })} options={["all", "todo", "in-progress", "done"]} />
-                  <select value={taskFilter.clientId} onChange={(event) => setTaskFilter({ ...taskFilter, clientId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4">
-                    <option value="all">all clients</option>
-                    {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-                  </select>
-                  <Select value={taskFilter.tag} onChange={(value) => setTaskFilter({ ...taskFilter, tag: value })} options={["all", ...allTaskTags]} />
-                </div>
-              </Panel>
-              <div className="grid gap-4 lg:grid-cols-3">
-                {(["todo", "in-progress", "done"] as TaskStatus[]).map((status) => (
-                  <Panel key={status} title={status.replace("-", " ")} subtitle={`${visibleTasks.filter((task) => task.status === status).length} items`}>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {(["todo", "in-progress"] as TaskStatus[]).map((status) => {
+                const laneTasks = visibleTasks.filter((task) => task.status === status).slice(0, 6);
+                return (
+                  <Panel key={status} title={status === "todo" ? "Next" : "Doing"} subtitle={`${laneTasks.length} shown. Keep the page breathable.`}>
                     <div className="space-y-3">
-                      {visibleTasks.filter((task) => task.status === status).map((task) => (
-                        <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />
-                      ))}
-                      {visibleTasks.filter((task) => task.status === status).length === 0 && <EmptyState text="Nothing here. Good — keep the lane clean." />}
+                      {laneTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
+                      {laneTasks.length === 0 && <EmptyState text="Nothing here. Good — do not fill space just because it exists." />}
                     </div>
                   </Panel>
-                ))}
-              </div>
+                );
+              })}
             </div>
+
+            <details className="rounded-[1.75rem] border border-white/80 bg-white/80 p-4 shadow-lg shadow-slate-200/40">
+              <summary className="cursor-pointer text-sm font-black text-slate-700">Add task / archive / advanced filters</summary>
+              <div className="mt-4 grid gap-5 xl:grid-cols-[360px_1fr]">
+                <form onSubmit={addTask} className="space-y-3 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                  <Input value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} placeholder="Task title" />
+                  <Textarea value={taskForm.description} onChange={(value) => setTaskForm({ ...taskForm, description: value })} placeholder="Why it matters / next concrete step" rows={3} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Select value={taskForm.priority} onChange={(value) => setTaskForm({ ...taskForm, priority: value as TaskPriority })} options={["Low", "Medium", "High"]} />
+                    <Input value={taskForm.dueDate} onChange={(value) => setTaskForm({ ...taskForm, dueDate: value })} placeholder="Due date YYYY-MM-DD" />
+                  </div>
+                  <select value={taskForm.clientId} onChange={(event) => setTaskForm({ ...taskForm, clientId: event.target.value, clientProjectId: "" })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
+                    <option value="">No client / personal</option>
+                    {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                  </select>
+                  <select value={taskForm.clientProjectId} onChange={(event) => setTaskForm({ ...taskForm, clientProjectId: event.target.value })} className="w-full min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none ring-indigo-200 transition focus:ring-4 sm:text-sm">
+                    <option value="">No project</option>
+                    {state.clientProjects.filter((project) => taskForm.clientId && project.clientId === taskForm.clientId).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+                  </select>
+                  <Button className="w-full bg-slate-950 text-white hover:bg-indigo-700">Add task</Button>
+                </form>
+                <div className="space-y-4 min-w-0">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Select value={taskFilter.tag} onChange={(value) => setTaskFilter({ ...taskFilter, tag: value })} options={["all", ...allTaskTags]} />
+                    <p className="rounded-2xl bg-white p-3 text-sm font-bold text-slate-500 ring-1 ring-slate-100">{doneVisibleTasks.length} done items hidden from the main board.</p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {doneVisibleTasks.slice(0, 8).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
+                  </div>
+                </div>
+              </div>
+            </details>
           </section>
         )}
 
@@ -549,41 +567,46 @@ export default function KanbanBoard() {
               </div>
             </Panel>
             {selectedClient && (
-              <Panel title={selectedClient.client} subtitle={`${selectedClient.projects.length} projects • ${selectedClient.tasks.length} tasks • ${selectedClient.logs.length} logs • ${selectedClient.content.length} content items`}>
-                <div className="grid gap-4 lg:grid-cols-[1fr_.9fr]">
+              <Panel title={selectedClient.client} subtitle="One account, one next action. Secondary history is collapsed below.">
+                <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
                   <article className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{selectedClient.record?.status || "tracked"}</span>
-                      <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase text-slate-500">{selectedClient.record?.stage || "relationship-first"}</span>
                       {selectedClient.record?.priority && <span className={`rounded-full px-2 py-1 text-xs font-black uppercase ${priorityStyle[selectedClient.record.priority]}`}>{selectedClient.record.priority}</span>}
                     </div>
-                    {selectedClient.record?.notes && <p className="mt-3 break-words whitespace-pre-wrap">{selectedClient.record.notes}</p>}
                     {selectedClient.record?.nextAction && <p className="mt-3 rounded-2xl bg-white p-3 font-black text-slate-950">Next: {selectedClient.record.nextAction}</p>}
-                    {selectedClient.record?.contactChannel && <p className="mt-3 break-all text-xs font-bold uppercase tracking-wide text-slate-400">{selectedClient.record.contactChannel}</p>}
+                    {selectedClient.record?.notes && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-slate-400">Client context</summary>
+                        <p className="mt-2 break-words whitespace-pre-wrap">{selectedClient.record.notes}</p>
+                      </details>
+                    )}
                   </article>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Metric label="Open tasks" value={`${selectedClient.tasks.filter((task) => task.status !== "done").length}`} />
+                  <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+                    <Metric label="Open" value={`${selectedClient.tasks.filter((task) => task.status !== "done").length}`} />
                     <Metric label="Projects" value={`${selectedClient.projects.length}`} />
                     <Metric label="Signals" value={`${selectedClient.logs.length + selectedClient.content.length}`} />
                   </div>
                 </div>
-                <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Visible commitments</h3>
+                    {selectedClient.tasks.filter((task) => task.status !== "done").slice(0, 4).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
+                    {selectedClient.tasks.filter((task) => task.status !== "done").length === 0 && <EmptyState text="No open task for this client." />}
+                  </div>
                   <div className="space-y-3">
                     <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Projects</h3>
-                    {selectedClient.projects.map((project) => <ProjectMini key={project.id} project={project} />)}
+                    {selectedClient.projects.slice(0, 3).map((project) => <ProjectMini key={project.id} project={project} />)}
                     {selectedClient.projects.length === 0 && <EmptyState text="No project attached yet." />}
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Tasks</h3>
-                    {selectedClient.tasks.slice(0, 8).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
-                    {selectedClient.tasks.length === 0 && <EmptyState text="No tasks attached. Add one from Tasks with this client selected." />}
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Logs, content & Lexa</h3>
-                    {selectedClient.logs.slice(0, 4).map((log) => <p key={log.id} className="break-words rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
-                    {selectedClient.content.slice(0, 3).map((item) => <ContentMini key={item.id} item={item} />)}
-                    {selectedClient.suggestions.slice(0, 3).map((suggestion) => <SuggestionMini key={suggestion.id} suggestion={suggestion} />)}
-                    {selectedClient.logs.length + selectedClient.content.length + selectedClient.suggestions.length === 0 && <EmptyState text="No recent signal yet." />}
+                    <details className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                      <summary className="cursor-pointer text-sm font-black text-slate-600">Logs, content & Lexa archive</summary>
+                      <div className="mt-3 space-y-3">
+                        {selectedClient.logs.slice(0, 4).map((log) => <p key={log.id} className="break-words rounded-2xl bg-white p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                        {selectedClient.content.slice(0, 3).map((item) => <ContentMini key={item.id} item={item} />)}
+                        {selectedClient.suggestions.slice(0, 3).map((suggestion) => <SuggestionMini key={suggestion.id} suggestion={suggestion} />)}
+                        {selectedClient.logs.length + selectedClient.content.length + selectedClient.suggestions.length === 0 && <EmptyState text="No recent signal yet." />}
+                      </div>
+                    </details>
                   </div>
                 </div>
               </Panel>
@@ -596,15 +619,15 @@ export default function KanbanBoard() {
             <Panel title="Content command room" subtitle="Separate Iacovici.it, vindepemarte and client content without losing production momentum.">
               <div className="grid gap-4 md:grid-cols-2">
                 {contentPipeline.items.length === 0 && contentPipeline.contentTasks.length === 0 && <EmptyState text="No content tasks yet. Tell Lexa when a video is scripted, recorded, edited or published." />}
-                {contentPipeline.items.map((item) => <ContentMini key={item.id} item={item} />)}
-                {contentPipeline.contentTasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} />)}
+                {contentPipeline.items.slice(0, 4).map((item) => <ContentMini key={item.id} item={item} />)}
+                {contentPipeline.contentTasks.filter((task) => task.status !== "done").slice(0, 6).map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
               </div>
             </Panel>
             <div className="space-y-6 min-w-0">
               <Panel title="Signals" subtitle="Research should become output, not another scroll loop.">
                 <div className="space-y-3">
-                  {contentPipeline.contentLogs.slice(0, 5).map((log) => <p key={log.id} className="break-words rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
-                  {contentPipeline.inspirations.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block break-words rounded-2xl bg-fuchsia-50 p-3 text-sm font-bold text-fuchsia-800">{item.platform}: {item.reason || item.url}</a>)}
+                  {contentPipeline.contentLogs.slice(0, 4).map((log) => <p key={log.id} className="break-words rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{log.note}</p>)}
+                  {contentPipeline.inspirations.slice(0, 4).map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block break-words rounded-2xl bg-fuchsia-50 p-3 text-sm font-bold text-fuchsia-800">{item.platform}: {item.reason || item.url}</a>)}
                   {contentPipeline.contentLogs.length === 0 && contentPipeline.inspirations.length === 0 && <EmptyState text="No content signals yet." />}
                 </div>
               </Panel>
@@ -634,7 +657,7 @@ export default function KanbanBoard() {
             <Panel title="Action analytics" subtitle={`Average energy: ${analytics.avgEnergy.toFixed(1)}/10`}>
               <div className="grid gap-4 md:grid-cols-2">
                 {state.logs.length === 0 && <EmptyState text="No time logs yet. Reply to Lexa’s check-ins or add a manual block here." />}
-                {state.logs.map((log) => (
+                {state.logs.slice(0, 8).map((log) => (
                   <article key={log.id} className="rounded-3xl border border-slate-200 bg-white p-4">
                     <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500"><span>{log.date}</span><span>•</span><span>{log.slot}</span><span>•</span><span>{log.hours}h</span></div>
                     <h3 className="mt-2 font-black text-slate-950">{log.category}</h3>
@@ -661,7 +684,7 @@ export default function KanbanBoard() {
             <Panel title="Research library" subtitle="Links you saved with reasons and patterns.">
               <div className="grid gap-4 md:grid-cols-2">
                 {state.inspirations.length === 0 && <EmptyState text="Save strong videos here: hooks, structures, pacing and angles worth adapting." />}
-                {state.inspirations.map((item) => (
+                {state.inspirations.slice(0, 8).map((item) => (
                   <article key={item.id} className="rounded-3xl border border-slate-200 bg-white p-4">
                     <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-black text-fuchsia-700">{item.platform}</span><span className="text-xs font-bold text-slate-400">{item.status}</span></div>
                     <a href={item.url} target="_blank" className="mt-3 block break-all text-sm font-bold text-indigo-700" rel="noreferrer">{item.url}</a>
@@ -678,8 +701,8 @@ export default function KanbanBoard() {
           <section className="grid gap-6 xl:grid-cols-[1fr_.75fr]">
             <Panel title="Business project lanes" subtitle="Client delivery, internal products and public brands in one clean map.">
               <div className="grid gap-4 md:grid-cols-2">
-                {state.clientProjects.map((project) => <ProjectMini key={project.id} project={project} />)}
-                {projectMap.projects.map((project) => (
+                {state.clientProjects.slice(0, 6).map((project) => <ProjectMini key={project.id} project={project} />)}
+                {projectMap.projects.slice(0, 6).map((project) => (
                   <ProjectCard key={project.id} item={project} kind="project" />
                 ))}
                 {state.clientProjects.length === 0 && projectMap.projects.length === 0 && <EmptyState text="No project lanes yet. Lexa can turn your brands, products and content lanes into tracked projects here." />}
@@ -694,7 +717,7 @@ export default function KanbanBoard() {
               <Panel title="Accounts & handles" subtitle="Where each public lane lives.">
                 <div className="space-y-4">
                   {projectMap.accounts.length === 0 && <EmptyState text="No accounts saved yet. Add handles, channels and fanpages as Account entries." />}
-                  {projectMap.accounts.map((account) => (
+                  {projectMap.accounts.slice(0, 6).map((account) => (
                     <ProjectCard key={account.id} item={account} kind="account" />
                   ))}
                 </div>
@@ -716,7 +739,7 @@ export default function KanbanBoard() {
             <Panel title="Business idea history" subtitle="Lexa can comment and turn good ideas into MVPs.">
               <div className="grid gap-4 md:grid-cols-2">
                 {state.ideas.length === 0 && <EmptyState text="Capture raw business ideas here. Good ideas can become experiments, content series or offers." />}
-                {state.ideas.map((idea) => (
+                {state.ideas.slice(0, 8).map((idea) => (
                   <article key={idea.id} className="rounded-3xl border border-slate-200 bg-white p-4">
                     <div className="flex items-start justify-between gap-3"><h3 className="font-black text-slate-950">{idea.title}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{idea.score}/10</span></div>
                     <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{idea.note}</p>
@@ -763,16 +786,26 @@ function ProjectCard({ item, kind }: { item: Idea; kind: "project" | "account" }
   );
 }
 
-function TaskMini({ task, onMove }: { task: Task; onMove: () => void }) {
+function TaskMini({ task, onMove, compact = false }: { task: Task; onMove: () => void; compact?: boolean }) {
   return (
     <article className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 break-words font-black text-slate-950">{task.title}</h3>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-black ${priorityStyle[task.priority]}`}>{task.priority}</span>
       </div>
-      <TaskMetaBadges task={task} />
-      {task.dueDate && <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-700">Due {task.dueDate}</p>}
-      <p className="mt-3 break-words whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+        {task.clientName && <span>{task.clientName}</span>}
+        {task.dueDate && <span className="text-amber-700">Due {task.dueDate}</span>}
+      </div>
+      {!compact && <TaskMetaBadges task={task} />}
+      {!compact && task.description && <p className="mt-3 break-words whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>}
+      {compact && task.description && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs font-black text-slate-500">Details</summary>
+          <p className="mt-2 break-words whitespace-pre-wrap text-sm leading-6 text-slate-600">{task.description}</p>
+          <TaskMetaBadges task={task} />
+        </details>
+      )}
       <button onClick={onMove} className="mt-4 min-h-11 rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">{taskStatusLabel(task.status)}</button>
     </article>
   );

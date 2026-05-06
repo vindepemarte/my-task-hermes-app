@@ -7,7 +7,7 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 export function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
-  return <section className="min-w-0 overflow-hidden rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-200/70 backdrop-blur sm:rounded-[2rem] sm:p-5 md:p-6"><SectionHeader title={title} subtitle={subtitle} />{children}</section>;
+  return <section className="min-w-0 overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/90 p-4 shadow-lg shadow-slate-200/50 backdrop-blur sm:p-5"><SectionHeader title={title} subtitle={subtitle} />{children}</section>;
 }
 
 export function Card({ children, tone = "white" }: { children: ReactNode; tone?: "white" | "slate" | "indigo" | "emerald" | "rose" | "fuchsia" }) {
