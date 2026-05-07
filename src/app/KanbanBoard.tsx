@@ -281,6 +281,23 @@ export default function KanbanBoard() {
   const doneVisibleTasks = visibleTasks.filter((task) => task.status === "done");
   const urgentVisibleTasks = openVisibleTasks.filter((task) => task.priority === "High").slice(0, 3);
 
+  const battlePlan = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const tasks = state.tasks
+      .filter((task) => task.dueDate === today && (task.tags ?? []).includes("battle-plan"))
+      .sort((a, b) => {
+        const aDone = a.status === "done" ? 1 : 0;
+        const bDone = b.status === "done" ? 1 : 0;
+        if (aDone !== bDone) return aDone - bDone;
+        const priorityRank: Record<TaskPriority, number> = { High: 0, Medium: 1, Low: 2 };
+        return priorityRank[a.priority] - priorityRank[b.priority];
+      });
+    const done = tasks.filter((task) => task.status === "done").length;
+    const next = tasks.find((task) => task.status !== "done");
+    const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+    return { today, tasks, done, next, percent };
+  }, [state.tasks]);
+
   const contentPipeline = useMemo(() => {
     const contentTasks = state.tasks.filter((task) => /iacovici|video|reels|shorts|vindepemarte|content|zâmbetin|youtube/i.test(`${task.title} ${task.description} ${task.tags.join(" ")}`));
     const contentLogs = state.logs.filter((log) => /iacovici|video|reels|shorts|vindepemarte|content/i.test(log.note));
@@ -448,8 +465,8 @@ export default function KanbanBoard() {
           <section className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
             <Panel title="Today Command Center" subtitle="What matters now, not an endless list.">
               <div className="grid gap-4 sm:grid-cols-3">
-                <ActionCard title="Top 3" body={commandCenter.topThree.map((task) => `• ${task.title}`).join("\n") || "No active top tasks. Ask Lexa for a battle plan."} />
-                <ActionCard title="Next move" body={commandCenter.nextTask ? commandCenter.nextTask.description || commandCenter.nextTask.title : "Choose one small money/content/energy action."} />
+                <ActionCard title="Battle plan" body={battlePlan.next ? `${battlePlan.done}/${battlePlan.tasks.length} done • Next: ${battlePlan.next.title}` : "No Battle Plan for today yet. Ask Lexa to create one."} />
+                <ActionCard title="Next move" body={battlePlan.next ? battlePlan.next.description || battlePlan.next.title : commandCenter.nextTask ? commandCenter.nextTask.description || commandCenter.nextTask.title : "Choose one small money/content/energy action."} />
                 <ActionCard title="Energy" body={commandCenter.latestEnergy ? `${commandCenter.latestEnergy}/10 — adjust workload to reality.` : "Log energy in Telegram so Lexa can pace the day."} />
               </div>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -481,6 +498,40 @@ export default function KanbanBoard() {
                 ))}
               </div>
             </Panel>
+          </section>
+        )}
+
+        {activeTab === "battle" && (
+          <section className="grid gap-5 xl:grid-cols-[1fr_.72fr]">
+            <Panel title="Battle Plan of Today" subtitle={`Database view for ${battlePlan.today}: ${battlePlan.done}/${battlePlan.tasks.length} checked • ${battlePlan.percent}% complete.`}>
+              <div className="overflow-hidden rounded-full bg-slate-100">
+                <div className="h-3 rounded-full bg-slate-950 transition-all" style={{ width: `${battlePlan.percent}%` }} />
+              </div>
+              {battlePlan.next && (
+                <div className="mt-5 rounded-3xl bg-indigo-50 p-5 text-indigo-950 ring-1 ring-indigo-100">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-600">Next one</p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">{battlePlan.next.title}</h2>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{battlePlan.next.description}</p>
+                  <button onClick={() => void cycleTask(battlePlan.next!.id)} className="mt-4 min-h-11 rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-indigo-700">{taskStatusLabel(battlePlan.next.status)}</button>
+                </div>
+              )}
+              <div className="mt-5 grid gap-3">
+                {battlePlan.tasks.map((task) => <TaskMini key={task.id} task={task} onMove={() => void cycleTask(task.id)} compact />)}
+                {battlePlan.tasks.length === 0 && <EmptyState text="No daily Battle Plan tasks yet. Tell Lexa what must be done today and they will appear here." />}
+              </div>
+            </Panel>
+            <div className="space-y-5 min-w-0">
+              <Panel title="19:00 finish line" subtitle="Use this to avoid scope creep.">
+                <div className="space-y-3">
+                  <ActionCard title="Must finish" body="Iacovici.it 2 videos • Godfather song 4/6 • 2 vindepemarte music reels" />
+                  <ActionCard title="Support tasks" body="Google Drive OAuth setup • ProHappyA structure • ABC response check" />
+                  <ActionCard title="Rule" body="Check each task after it is done. Click Details to see exactly what output is expected." />
+                </div>
+              </Panel>
+              <Panel title="General Tasks stays clean" subtitle="Battle is just today's filtered view.">
+                <p className="text-sm leading-6 text-slate-600">The main Tasks tab remains the full execution board. This tab only shows tasks tagged <strong>battle-plan</strong> with today&apos;s due date, so Lexa can update the day without sending you another file.</p>
+              </Panel>
+            </div>
           </section>
         )}
 

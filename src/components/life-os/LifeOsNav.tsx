@@ -1,7 +1,7 @@
 import type { TabKey } from "./constants";
 import { tabs } from "./constants";
 
-const primaryTabs: TabKey[] = ["overview", "tasks", "clients", "content", "analytics"];
+const primaryTabs: TabKey[] = ["overview", "battle", "tasks", "clients", "content", "analytics"];
 
 export function LifeOsNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab: TabKey) => void }) {
   const primary = tabs.filter((tab) => primaryTabs.includes(tab.key));
@@ -9,7 +9,7 @@ export function LifeOsNav({ activeTab, onChange }: { activeTab: TabKey; onChange
 
   return (
     <nav className="rounded-[1.75rem] border border-white/70 bg-white/90 p-2 shadow-lg shadow-slate-200/50 backdrop-blur" aria-label="Life OS sections">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
         {primary.map((tab) => (
           <button
             key={tab.key}

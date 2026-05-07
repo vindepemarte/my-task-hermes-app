@@ -8,9 +8,9 @@ export function MobileCommandStrip({ nextTaskTitle, energy, onChangeTab }: { nex
         <p className="mt-1 truncate text-sm font-black">{nextTaskTitle || "Ask Lexa for the next move"}</p>
       </div>
       <div className="mt-3 grid grid-cols-4 gap-2">
-        <button onClick={() => onChangeTab("tasks")} className="min-h-11 rounded-2xl bg-white px-2 text-xs font-black text-slate-950">Tasks</button>
+        <button onClick={() => onChangeTab("battle")} className="min-h-11 rounded-2xl bg-white px-2 text-xs font-black text-slate-950">Battle</button>
+        <button onClick={() => onChangeTab("tasks")} className="min-h-11 rounded-2xl bg-white/15 px-2 text-xs font-black">Tasks</button>
         <button onClick={() => onChangeTab("clients")} className="min-h-11 rounded-2xl bg-white/15 px-2 text-xs font-black">Clients</button>
-        <button onClick={() => onChangeTab("analytics")} className="min-h-11 rounded-2xl bg-white/15 px-2 text-xs font-black">Log</button>
         <div className="flex min-h-11 items-center justify-center rounded-2xl bg-indigo-500 px-2 text-xs font-black">{energy || "–"}/10</div>
       </div>
     </div>

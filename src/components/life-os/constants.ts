@@ -1,6 +1,6 @@
 import type { TaskPriority, TimeCategory } from "@/lib/lifeOsDb";
 
-export type TabKey = "overview" | "tasks" | "clients" | "content" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
+export type TabKey = "overview" | "battle" | "tasks" | "clients" | "content" | "analytics" | "inspiration" | "projects" | "ideas" | "modes";
 
 export const categories: TimeCategory[] = [
   "Produzione",
@@ -15,6 +15,7 @@ export const categories: TimeCategory[] = [
 
 export const tabs: Array<{ key: TabKey; label: string; shortLabel: string; hint: string; icon: string }> = [
   { key: "overview", label: "Overview", shortLabel: "Today", hint: "oggi + settimana", icon: "◎" },
+  { key: "battle", label: "Battle Plan of Today", shortLabel: "Battle", hint: "today's checklist", icon: "⚑" },
   { key: "tasks", label: "Tasks", shortLabel: "Tasks", hint: "execution board", icon: "✓" },
   { key: "clients", label: "Clients", shortLabel: "Clients", hint: "active work", icon: "€" },
   { key: "content", label: "Content", shortLabel: "Content", hint: "pipeline", icon: "▶" },
