@@ -8,6 +8,15 @@ const expected = {
   content_items: ['id', 'brand', 'platform', 'title', 'status', 'idea_source', 'hook', 'script_notes', 'asset_url', 'publish_url', 'planned_date', 'published_at', 'created_at', 'updated_at'],
   lexa_suggestions: ['id', 'suggestion_type', 'title', 'body', 'priority', 'status', 'related_entity_type', 'related_entity_id', 'created_at', 'updated_at'],
   daily_journals: ['id', 'journal_date', 'plan_top_three', 'done_items', 'energy', 'mood', 'notes', 'created_at', 'updated_at'],
+  business_units: ['id', 'slug', 'name', 'category', 'purpose', 'target_audience', 'core_offer', 'main_fvp', 'main_statistic', 'supporting_statistics', 'current_condition', 'condition_formula', 'strategic_plan', 'owner', 'critical_lines', 'status', 'next_review_at', 'metadata', 'created_at', 'updated_at'],
+  final_valuable_products: ['id', 'business_unit_id', 'name', 'description', 'recipient', 'proof_required', 'value_type', 'status', 'created_at', 'updated_at'],
+  admin_statistics: ['id', 'business_unit_id', 'name', 'description', 'unit', 'cadence', 'direction', 'is_main', 'status', 'created_at', 'updated_at'],
+  statistic_entries: ['id', 'statistic_id', 'period_start', 'period_end', 'value', 'previous_value', 'delta', 'source', 'evidence_url', 'notes', 'created_at', 'updated_at'],
+  operating_conditions: ['code', 'name', 'description', 'formula_steps', 'severity', 'requires_human_review'],
+  condition_assignments: ['id', 'business_unit_id', 'condition_code', 'statistic_id', 'rationale', 'assigned_by', 'status', 'assigned_at', 'closed_at', 'created_at', 'updated_at'],
+  battle_plans: ['id', 'business_unit_id', 'plan_type', 'title', 'purpose', 'period_start', 'period_end', 'status', 'linked_condition_assignment_id', 'strategic_plan_link', 'review_notes', 'created_by', 'created_at', 'updated_at'],
+  battle_plan_items: ['id', 'battle_plan_id', 'task_id', 'final_valuable_product_id', 'statistic_id', 'title', 'output_expected', 'proof_required', 'owner', 'due_at', 'status', 'sort_order', 'created_at', 'updated_at'],
+  execution_reports: ['id', 'business_unit_id', 'battle_plan_id', 'battle_plan_item_id', 'task_id', 'report_type', 'title', 'summary', 'proof_url', 'statistic_effect', 'next_action', 'reported_by', 'reported_at', 'created_at', 'updated_at'],
 };
 
 async function main() {

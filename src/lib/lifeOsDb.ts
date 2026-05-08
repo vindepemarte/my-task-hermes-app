@@ -115,6 +115,102 @@ export type DailyJournal = {
   notes: string;
 };
 
+export type BusinessUnitCategory = "our_business" | "client_delivery" | "prospect_pipeline";
+export type OperatingConditionCode = "confusione" | "tradimento" | "nemico" | "dubbio" | "non_esistenza" | "pericolo" | "emergenza" | "normale" | "abbondanza" | "potere" | "cambio_potere";
+
+export type BusinessUnit = {
+  id: string;
+  slug: string;
+  name: string;
+  category: BusinessUnitCategory;
+  purpose: string;
+  targetAudience: string;
+  coreOffer: string;
+  mainFvp: string;
+  mainStatistic: string;
+  supportingStatistics: string[];
+  currentCondition: OperatingConditionCode;
+  conditionFormula: string;
+  strategicPlan: string;
+  owner: string;
+  criticalLines: string[];
+  status: "active" | "paused" | "completed" | "archived";
+  nextReviewAt: string;
+};
+
+export type FinalValuableProduct = {
+  id: string;
+  businessUnitId: string;
+  name: string;
+  description: string;
+  recipient: string;
+  proofRequired: string;
+  valueType: string;
+  status: string;
+};
+
+export type AdminStatistic = {
+  id: string;
+  businessUnitId: string;
+  businessUnitName?: string;
+  name: string;
+  description: string;
+  unit: string;
+  cadence: "daily" | "weekly" | "monthly" | "event";
+  direction: "up" | "down" | "stable";
+  isMain: boolean;
+  latestValue: number | null;
+  previousValue: number | null;
+  latestPeriodEnd: string;
+};
+
+export type OperatingCondition = {
+  code: OperatingConditionCode;
+  name: string;
+  description: string;
+  formulaSteps: string[];
+  severity: number;
+  requiresHumanReview: boolean;
+};
+
+export type BattlePlan = {
+  id: string;
+  businessUnitId: string;
+  businessUnitName?: string;
+  planType: "daily" | "weekly" | "monthly" | "program";
+  title: string;
+  purpose: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "draft" | "active" | "completed" | "cancelled" | "archived";
+  reviewNotes: string;
+};
+
+export type BattlePlanItem = {
+  id: string;
+  battlePlanId: string;
+  taskId: string;
+  title: string;
+  outputExpected: string;
+  proofRequired: string;
+  owner: string;
+  dueAt: string;
+  status: "todo" | "doing" | "blocked" | "done" | "cancelled";
+  sortOrder: number;
+};
+
+export type ExecutionReport = {
+  id: string;
+  businessUnitId: string;
+  businessUnitName?: string;
+  reportType: string;
+  title: string;
+  summary: string;
+  proofUrl: string;
+  nextAction: string;
+  reportedAt: string;
+};
+
 export type AppState = {
   tasks: Task[];
   logs: TimeLog[];
@@ -125,6 +221,13 @@ export type AppState = {
   contentItems: ContentItem[];
   lexaSuggestions: LexaSuggestion[];
   dailyJournals: DailyJournal[];
+  businessUnits: BusinessUnit[];
+  finalValuableProducts: FinalValuableProduct[];
+  adminStatistics: AdminStatistic[];
+  operatingConditions: OperatingCondition[];
+  battlePlans: BattlePlan[];
+  battlePlanItems: BattlePlanItem[];
+  executionReports: ExecutionReport[];
 };
 
 const connectionString = process.env.LIFE_OS_DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -174,6 +277,13 @@ export const emptyState: AppState = {
   contentItems: [],
   lexaSuggestions: [],
   dailyJournals: [],
+  businessUnits: [],
+  finalValuableProducts: [],
+  adminStatistics: [],
+  operatingConditions: [],
+  battlePlans: [],
+  battlePlanItems: [],
+  executionReports: [],
 };
 
 async function ensureDefaultTasks() {
@@ -254,7 +364,7 @@ function taskFromDb(row: Record<string, unknown>): Task {
 export async function getLifeOsState(): Promise<AppState> {
   const db = getLifeOsPool();
   await ensureDefaultTasks();
-  const [tasks, logs, inspirations, ideas, clients, clientProjects, contentItems, lexaSuggestions, dailyJournals] = await Promise.all([
+  const [tasks, logs, inspirations, ideas, clients, clientProjects, contentItems, lexaSuggestions, dailyJournals, businessUnits, finalValuableProducts, adminStatistics, operatingConditions, battlePlans, battlePlanItems, executionReports] = await Promise.all([
     db.query(`
       select t.id::text, t.title, t.notes, t.priority, t.status,
              t.client_id::text, c.name as client_name,
@@ -274,6 +384,22 @@ export async function getLifeOsState(): Promise<AppState> {
     optionalQuery("select id::text, brand, platform, title, status, idea_source, hook, script_notes, asset_url, publish_url, planned_date, published_at from life_os.content_items order by updated_at desc, created_at desc"),
     optionalQuery("select id::text, suggestion_type, title, body, priority, status, related_entity_type, related_entity_id::text from life_os.lexa_suggestions order by updated_at desc, created_at desc"),
     optionalQuery("select id::text, journal_date, plan_top_three, done_items, energy, mood, notes from life_os.daily_journals order by journal_date desc limit 14"),
+    optionalQuery("select id::text, slug, name, category, purpose, target_audience, core_offer, main_fvp, main_statistic, supporting_statistics, current_condition, condition_formula, strategic_plan, owner, critical_lines, status, next_review_at from life_os.business_units order by case category when 'our_business' then 1 when 'client_delivery' then 2 else 3 end, name"),
+    optionalQuery("select id::text, business_unit_id::text, name, description, recipient, proof_required, value_type, status from life_os.final_valuable_products order by updated_at desc"),
+    optionalQuery(`
+      select s.id::text, s.business_unit_id::text, bu.name as business_unit_name, s.name, s.description, s.unit, s.cadence, s.direction, s.is_main,
+             latest.value as latest_value, latest.previous_value, latest.period_end as latest_period_end
+      from life_os.admin_statistics s
+      left join life_os.business_units bu on bu.id = s.business_unit_id
+      left join lateral (
+        select value, previous_value, period_end from life_os.statistic_entries se where se.statistic_id = s.id order by period_end desc limit 1
+      ) latest on true
+      order by s.is_main desc, bu.name, s.name
+    `),
+    optionalQuery("select code, name, description, formula_steps, severity, requires_human_review from life_os.operating_conditions order by severity desc"),
+    optionalQuery("select bp.id::text, bp.business_unit_id::text, bu.name as business_unit_name, bp.plan_type, bp.title, bp.purpose, bp.period_start, bp.period_end, bp.status, bp.review_notes from life_os.battle_plans bp left join life_os.business_units bu on bu.id = bp.business_unit_id order by bp.period_start desc, bp.created_at desc limit 30"),
+    optionalQuery("select id::text, battle_plan_id::text, task_id::text, title, output_expected, proof_required, owner, due_at, status, sort_order from life_os.battle_plan_items order by sort_order, created_at"),
+    optionalQuery("select er.id::text, er.business_unit_id::text, bu.name as business_unit_name, er.report_type, er.title, er.summary, er.proof_url, er.next_action, er.reported_at from life_os.execution_reports er left join life_os.business_units bu on bu.id = er.business_unit_id order by er.reported_at desc limit 30"),
   ]);
 
   return {
@@ -288,6 +414,13 @@ export async function getLifeOsState(): Promise<AppState> {
     contentItems: contentItems.map((row) => ({ id: row.id, brand: row.brand, platform: row.platform, title: row.title, status: row.status, ideaSource: row.idea_source || "", hook: row.hook || "", scriptNotes: row.script_notes || "", assetUrl: row.asset_url || "", publishUrl: row.publish_url || "", plannedDate: dateOnly(row.planned_date), publishedAt: row.published_at ? new Date(row.published_at).toISOString() : "" })),
     lexaSuggestions: lexaSuggestions.map((row) => ({ id: row.id, suggestionType: row.suggestion_type, title: row.title, body: row.body || "", priority: priorityFromDb(row.priority), status: row.status, relatedEntityType: row.related_entity_type || "", relatedEntityId: row.related_entity_id || "" })),
     dailyJournals: dailyJournals.map((row) => ({ id: row.id, journalDate: dateOnly(row.journal_date), planTopThree: row.plan_top_three || [], doneItems: row.done_items || [], energy: row.energy === null ? null : Number(row.energy), mood: row.mood || "", notes: row.notes || "" })),
+    businessUnits: businessUnits.map((row) => ({ id: row.id, slug: row.slug, name: row.name, category: row.category, purpose: row.purpose || "", targetAudience: row.target_audience || "", coreOffer: row.core_offer || "", mainFvp: row.main_fvp || "", mainStatistic: row.main_statistic || "", supportingStatistics: row.supporting_statistics || [], currentCondition: row.current_condition || "non_esistenza", conditionFormula: row.condition_formula || "", strategicPlan: row.strategic_plan || "", owner: row.owner || "Alexandru", criticalLines: row.critical_lines || [], status: row.status || "active", nextReviewAt: row.next_review_at ? new Date(row.next_review_at).toISOString() : "" })),
+    finalValuableProducts: finalValuableProducts.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id, name: row.name, description: row.description || "", recipient: row.recipient || "", proofRequired: row.proof_required || "", valueType: row.value_type || "", status: row.status || "active" })),
+    adminStatistics: adminStatistics.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id, businessUnitName: row.business_unit_name || "", name: row.name, description: row.description || "", unit: row.unit || "count", cadence: row.cadence || "weekly", direction: row.direction || "up", isMain: Boolean(row.is_main), latestValue: row.latest_value === null || row.latest_value === undefined ? null : Number(row.latest_value), previousValue: row.previous_value === null || row.previous_value === undefined ? null : Number(row.previous_value), latestPeriodEnd: dateOnly(row.latest_period_end) })),
+    operatingConditions: operatingConditions.map((row) => ({ code: row.code, name: row.name, description: row.description || "", formulaSteps: row.formula_steps || [], severity: Number(row.severity || 0), requiresHumanReview: Boolean(row.requires_human_review) })),
+    battlePlans: battlePlans.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", planType: row.plan_type, title: row.title, purpose: row.purpose || "", periodStart: dateOnly(row.period_start), periodEnd: dateOnly(row.period_end), status: row.status, reviewNotes: row.review_notes || "" })),
+    battlePlanItems: battlePlanItems.map((row) => ({ id: row.id, battlePlanId: row.battle_plan_id, taskId: row.task_id || "", title: row.title, outputExpected: row.output_expected || "", proofRequired: row.proof_required || "", owner: row.owner || "Alexandru", dueAt: row.due_at ? new Date(row.due_at).toISOString() : "", status: row.status || "todo", sortOrder: Number(row.sort_order || 0) })),
+    executionReports: executionReports.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", reportType: row.report_type || "completion", title: row.title, summary: row.summary || "", proofUrl: row.proof_url || "", nextAction: row.next_action || "", reportedAt: row.reported_at ? new Date(row.reported_at).toISOString() : "" })),
   };
 }
 

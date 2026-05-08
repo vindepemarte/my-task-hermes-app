@@ -55,6 +55,13 @@ const defaultState: AppState = {
   contentItems: [],
   lexaSuggestions: [],
   dailyJournals: [],
+  businessUnits: [],
+  finalValuableProducts: [],
+  adminStatistics: [],
+  operatingConditions: [],
+  battlePlans: [],
+  battlePlanItems: [],
+  executionReports: [],
 };
 
 
@@ -74,6 +81,13 @@ function loadLocalState(): AppState {
       contentItems: parsed.contentItems ?? [],
       lexaSuggestions: parsed.lexaSuggestions ?? [],
       dailyJournals: parsed.dailyJournals ?? [],
+      businessUnits: parsed.businessUnits ?? [],
+      finalValuableProducts: parsed.finalValuableProducts ?? [],
+      adminStatistics: parsed.adminStatistics ?? [],
+      operatingConditions: parsed.operatingConditions ?? [],
+      battlePlans: parsed.battlePlans ?? [],
+      battlePlanItems: parsed.battlePlanItems ?? [],
+      executionReports: parsed.executionReports ?? [],
     };
   } catch {
     return defaultState;
@@ -264,6 +278,19 @@ export default function KanbanBoard() {
   }, [state.clientProjects, state.clients, state.contentItems, state.lexaSuggestions, state.logs, state.tasks]);
 
   const selectedClient = clientMap.find((client) => (client.record?.id || client.client) === selectedClientKey) ?? clientMap[0];
+
+  const adminOverview = useMemo(() => {
+    const conditions = new Map(state.operatingConditions.map((condition) => [condition.code, condition]));
+    const statsByUnit = new Map<string, typeof state.adminStatistics>();
+    for (const stat of state.adminStatistics) {
+      statsByUnit.set(stat.businessUnitId, [...(statsByUnit.get(stat.businessUnitId) ?? []), stat]);
+    }
+    const fvpsByUnit = new Map<string, typeof state.finalValuableProducts>();
+    for (const fvp of state.finalValuableProducts) {
+      fvpsByUnit.set(fvp.businessUnitId, [...(fvpsByUnit.get(fvp.businessUnitId) ?? []), fvp]);
+    }
+    return { conditions, statsByUnit, fvpsByUnit };
+  }, [state]);
 
   const visibleTasks = useMemo(() => {
     return state.tasks.filter((task) => {
@@ -498,6 +525,61 @@ export default function KanbanBoard() {
                 ))}
               </div>
             </Panel>
+          </section>
+        )}
+
+        {activeTab === "admin" && (
+          <section className="grid gap-5 xl:grid-cols-[1fr_.72fr]">
+            <Panel title="Administrative Scale" subtitle="Scopo → FVP → statistiche → condizione → formula → battle plan → rapporto.">
+              <div className="grid gap-4 md:grid-cols-2">
+                {state.businessUnits.map((unit) => {
+                  const condition = adminOverview.conditions.get(unit.currentCondition);
+                  const unitStats = adminOverview.statsByUnit.get(unit.id) ?? [];
+                  const unitFvps = adminOverview.fvpsByUnit.get(unit.id) ?? [];
+                  return (
+                    <article key={unit.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{unit.category.replace("_", " ")}</p>
+                          <h3 className="mt-2 text-lg font-black text-slate-950">{unit.name}</h3>
+                        </div>
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{condition?.name || unit.currentCondition}</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{unit.purpose}</p>
+                      <div className="mt-4 grid gap-3">
+                        <ActionCard title="FVP" body={unitFvps[0]?.name || unit.mainFvp || "Missing final valuable product"} />
+                        <ActionCard title="Main statistic" body={unitStats[0] ? `${unitStats[0].name}: ${unitStats[0].latestValue ?? "no data yet"} ${unitStats[0].unit}` : unit.mainStatistic || "Missing statistic"} />
+                        <ActionCard title="Formula" body={condition?.formulaSteps?.slice(0, 3).join(" → ") || unit.conditionFormula || "No formula attached"} />
+                      </div>
+                      <details className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                        <summary className="cursor-pointer text-sm font-black text-slate-600">Strategic plan + lines</summary>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{unit.strategicPlan}</p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {unit.criticalLines.map((line) => <span key={line} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-indigo-700 ring-1 ring-indigo-100">{line}</span>)}
+                        </div>
+                      </details>
+                    </article>
+                  );
+                })}
+                {state.businessUnits.length === 0 && <EmptyState text="Admin Battle Plan schema is not loaded yet. Run the migration or log in to cloud sync." />}
+              </div>
+            </Panel>
+            <div className="space-y-5 min-w-0">
+              <Panel title="Portfolio lanes" subtitle="Approved separation.">
+                <div className="space-y-3">
+                  <ActionCard title="Business nostri" body="Iacovici.it • ProHappyA • Vindepemarte Music/Fun • Zâmbetin TV" />
+                  <ActionCard title="Client Delivery" body="ABC and future clients: track only Alexandru deliverables, proofs, approved follow-ups and payments." />
+                  <ActionCard title="Prospects / Lead pipeline" body="Potential clients not closed yet: research, demos, outreach only when approved, next-stage evidence." />
+                </div>
+              </Panel>
+              <Panel title="Battle plans & reports" subtitle="Execution must end with proof.">
+                <div className="space-y-3">
+                  {state.battlePlans.slice(0, 4).map((plan) => <ActionCard key={plan.id} title={plan.title} body={`${plan.businessUnitName || "Portfolio"} • ${plan.planType} • ${plan.status}\n${plan.periodStart} → ${plan.periodEnd}`} />)}
+                  {state.battlePlans.length === 0 && <EmptyState text="No formal battle plan stored yet. Lexa can now create daily/weekly plans against business units and statistics." />}
+                  {state.executionReports.slice(0, 3).map((report) => <ActionCard key={report.id} title={report.title} body={`${report.businessUnitName || "Portfolio"} • ${report.reportType}\n${report.summary || report.nextAction}`} />)}
+                </div>
+              </Panel>
+            </div>
           </section>
         )}
 
