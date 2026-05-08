@@ -211,6 +211,36 @@ export type ExecutionReport = {
   reportedAt: string;
 };
 
+export type OperatingEvent = {
+  id: string;
+  eventType: "stat" | "done" | "blocked" | "decision" | "order" | "note" | "risk" | "outness" | "proof" | "cleanup";
+  businessUnitId: string;
+  businessUnitName?: string;
+  taskId: string;
+  statisticId: string;
+  statisticName?: string;
+  title: string;
+  body: string;
+  rawText: string;
+  value: number | null;
+  proofUrl: string;
+  status: "open" | "processed" | "needs_review" | "closed" | "archived";
+  source: string;
+  createdAt: string;
+};
+
+export type DecisionLogEntry = {
+  id: string;
+  businessUnitId: string;
+  businessUnitName?: string;
+  decision: string;
+  rationale: string;
+  expectedEffect: string;
+  status: "active" | "reversed" | "superseded" | "archived";
+  source: string;
+  decidedAt: string;
+};
+
 export type AppState = {
   tasks: Task[];
   logs: TimeLog[];
@@ -228,6 +258,8 @@ export type AppState = {
   battlePlans: BattlePlan[];
   battlePlanItems: BattlePlanItem[];
   executionReports: ExecutionReport[];
+  operatingEvents: OperatingEvent[];
+  decisionLog: DecisionLogEntry[];
 };
 
 const connectionString = process.env.LIFE_OS_DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -284,6 +316,8 @@ export const emptyState: AppState = {
   battlePlans: [],
   battlePlanItems: [],
   executionReports: [],
+  operatingEvents: [],
+  decisionLog: [],
 };
 
 async function ensureDefaultTasks() {
@@ -361,10 +395,14 @@ function taskFromDb(row: Record<string, unknown>): Task {
   };
 }
 
+function isoDateTime(value: string | Date | null | undefined) {
+  return value ? new Date(value).toISOString() : "";
+}
+
 export async function getLifeOsState(): Promise<AppState> {
   const db = getLifeOsPool();
   await ensureDefaultTasks();
-  const [tasks, logs, inspirations, ideas, clients, clientProjects, contentItems, lexaSuggestions, dailyJournals, businessUnits, finalValuableProducts, adminStatistics, operatingConditions, battlePlans, battlePlanItems, executionReports] = await Promise.all([
+  const [tasks, logs, inspirations, ideas, clients, clientProjects, contentItems, lexaSuggestions, dailyJournals, businessUnits, finalValuableProducts, adminStatistics, operatingConditions, battlePlans, battlePlanItems, executionReports, operatingEvents, decisionLog] = await Promise.all([
     db.query(`
       select t.id::text, t.title, t.notes, t.priority, t.status,
              t.client_id::text, c.name as client_name,
@@ -392,14 +430,17 @@ export async function getLifeOsState(): Promise<AppState> {
       from life_os.admin_statistics s
       left join life_os.business_units bu on bu.id = s.business_unit_id
       left join lateral (
-        select value, previous_value, period_end from life_os.statistic_entries se where se.statistic_id = s.id order by period_end desc limit 1
+        select value, previous_value, period_end from life_os.statistic_entries se      where se.statistic_id = s.id order by period_end desc limit 1
       ) latest on true
+      where s.status = 'active'
       order by s.is_main desc, bu.name, s.name
     `),
     optionalQuery("select code, name, description, formula_steps, severity, requires_human_review from life_os.operating_conditions order by severity desc"),
     optionalQuery("select bp.id::text, bp.business_unit_id::text, bu.name as business_unit_name, bp.plan_type, bp.title, bp.purpose, bp.period_start, bp.period_end, bp.status, bp.review_notes from life_os.battle_plans bp left join life_os.business_units bu on bu.id = bp.business_unit_id order by bp.period_start desc, bp.created_at desc limit 30"),
     optionalQuery("select id::text, battle_plan_id::text, task_id::text, title, output_expected, proof_required, owner, due_at, status, sort_order from life_os.battle_plan_items order by sort_order, created_at"),
     optionalQuery("select er.id::text, er.business_unit_id::text, bu.name as business_unit_name, er.report_type, er.title, er.summary, er.proof_url, er.next_action, er.reported_at from life_os.execution_reports er left join life_os.business_units bu on bu.id = er.business_unit_id order by er.reported_at desc limit 30"),
+    optionalQuery("select oe.id::text, oe.event_type, oe.business_unit_id::text, bu.name as business_unit_name, oe.task_id::text, oe.statistic_id::text, s.name as statistic_name, oe.title, oe.body, oe.raw_text, oe.value, oe.proof_url, oe.status, oe.source, oe.created_at from life_os.operating_events oe left join life_os.business_units bu on bu.id = oe.business_unit_id left join life_os.admin_statistics s on s.id = oe.statistic_id where oe.status <> 'archived' order by oe.created_at desc limit 50"),
+    optionalQuery("select dl.id::text, dl.business_unit_id::text, bu.name as business_unit_name, dl.decision, dl.rationale, dl.expected_effect, dl.status, dl.source, dl.decided_at from life_os.decision_log dl left join life_os.business_units bu on bu.id = dl.business_unit_id where dl.status <> 'archived' order by dl.decided_at desc limit 30"),
   ]);
 
   return {
@@ -420,7 +461,9 @@ export async function getLifeOsState(): Promise<AppState> {
     operatingConditions: operatingConditions.map((row) => ({ code: row.code, name: row.name, description: row.description || "", formulaSteps: row.formula_steps || [], severity: Number(row.severity || 0), requiresHumanReview: Boolean(row.requires_human_review) })),
     battlePlans: battlePlans.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", planType: row.plan_type, title: row.title, purpose: row.purpose || "", periodStart: dateOnly(row.period_start), periodEnd: dateOnly(row.period_end), status: row.status, reviewNotes: row.review_notes || "" })),
     battlePlanItems: battlePlanItems.map((row) => ({ id: row.id, battlePlanId: row.battle_plan_id, taskId: row.task_id || "", title: row.title, outputExpected: row.output_expected || "", proofRequired: row.proof_required || "", owner: row.owner || "Alexandru", dueAt: row.due_at ? new Date(row.due_at).toISOString() : "", status: row.status || "todo", sortOrder: Number(row.sort_order || 0) })),
-    executionReports: executionReports.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", reportType: row.report_type || "completion", title: row.title, summary: row.summary || "", proofUrl: row.proof_url || "", nextAction: row.next_action || "", reportedAt: row.reported_at ? new Date(row.reported_at).toISOString() : "" })),
+    executionReports: executionReports.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", reportType: row.report_type || "completion", title: row.title, summary: row.summary || "", proofUrl: row.proof_url || "", nextAction: row.next_action || "", reportedAt: isoDateTime(row.reported_at) })),
+    operatingEvents: operatingEvents.map((row) => ({ id: row.id, eventType: row.event_type, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", taskId: row.task_id || "", statisticId: row.statistic_id || "", statisticName: row.statistic_name || "", title: row.title, body: row.body || "", rawText: row.raw_text || "", value: row.value === null || row.value === undefined ? null : Number(row.value), proofUrl: row.proof_url || "", status: row.status || "open", source: row.source || "telegram", createdAt: isoDateTime(row.created_at) })),
+    decisionLog: decisionLog.map((row) => ({ id: row.id, businessUnitId: row.business_unit_id || "", businessUnitName: row.business_unit_name || "", decision: row.decision, rationale: row.rationale || "", expectedEffect: row.expected_effect || "", status: row.status || "active", source: row.source || "lexa", decidedAt: isoDateTime(row.decided_at) })),
   };
 }
 
@@ -521,6 +564,149 @@ export async function upsertDailyJournal(input: Omit<DailyJournal, "id">) {
   );
   const row = result.rows[0];
   return { id: row.id, journalDate: dateOnly(row.journal_date), planTopThree: row.plan_top_three || [], doneItems: row.done_items || [], energy: row.energy === null ? null : Number(row.energy), mood: row.mood || "", notes: row.notes || "" } satisfies DailyJournal;
+}
+
+
+export async function createStatisticEntry(input: { statisticId: string; value: number; periodStart?: string; periodEnd?: string; evidenceUrl?: string; notes?: string; source?: string }) {
+  const periodEnd = input.periodEnd || new Date().toISOString().slice(0, 10);
+  const periodStart = input.periodStart || periodEnd;
+  const previous = await getLifeOsPool().query("select value from life_os.statistic_entries where statistic_id=$1 and period_end < $2 order by period_end desc limit 1", [input.statisticId, periodEnd]);
+  const previousValue = previous.rows[0]?.value ?? null;
+  const result = await getLifeOsPool().query(
+    `insert into life_os.statistic_entries (statistic_id, period_start, period_end, value, previous_value, evidence_url, notes, source)
+     values ($1,$2,$3,$4,$5,$6,$7,$8)
+     on conflict (statistic_id, period_start, period_end) do update set value=$4, previous_value=$5, evidence_url=$6, notes=$7, source=$8, updated_at=now()
+     returning id::text, statistic_id::text, period_start, period_end, value, previous_value, evidence_url, notes, source`,
+    [input.statisticId, periodStart, periodEnd, input.value, previousValue, input.evidenceUrl || "", input.notes || "", input.source || "manual"],
+  );
+  return result.rows[0];
+}
+
+export async function createBattlePlanItem(input: { battlePlanId: string; title: string; outputExpected?: string; proofRequired?: string; owner?: string; dueAt?: string; statisticId?: string; finalValuableProductId?: string; sortOrder?: number }) {
+  const result = await getLifeOsPool().query(
+    `insert into life_os.battle_plan_items (battle_plan_id, title, output_expected, proof_required, owner, due_at, statistic_id, final_valuable_product_id, sort_order)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     returning id::text, battle_plan_id::text, task_id::text, title, output_expected, proof_required, owner, due_at, status, sort_order`,
+    [input.battlePlanId, input.title, input.outputExpected || "", input.proofRequired || "proof/report required", input.owner || "Alexandru", input.dueAt || null, input.statisticId || null, input.finalValuableProductId || null, input.sortOrder || 0],
+  );
+  const row = result.rows[0];
+  return { id: row.id, battlePlanId: row.battle_plan_id, taskId: row.task_id || "", title: row.title, outputExpected: row.output_expected || "", proofRequired: row.proof_required || "", owner: row.owner || "Alexandru", dueAt: isoDateTime(row.due_at), status: row.status || "todo", sortOrder: Number(row.sort_order || 0) } satisfies BattlePlanItem;
+}
+
+export async function createExecutionReport(input: { businessUnitId?: string; battlePlanId?: string; battlePlanItemId?: string; taskId?: string; reportType?: string; title: string; summary?: string; proofUrl?: string; nextAction?: string; reportedBy?: string }) {
+  const result = await getLifeOsPool().query(
+    `insert into life_os.execution_reports (business_unit_id, battle_plan_id, battle_plan_item_id, task_id, report_type, title, summary, proof_url, next_action, reported_by)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     returning id::text, business_unit_id::text, report_type, title, summary, proof_url, next_action, reported_at`,
+    [input.businessUnitId || null, input.battlePlanId || null, input.battlePlanItemId || null, input.taskId || null, input.reportType || "completion", input.title, input.summary || "", input.proofUrl || "", input.nextAction || "", input.reportedBy || "Lexa"],
+  );
+  const row = result.rows[0];
+  return { id: row.id, businessUnitId: row.business_unit_id || "", reportType: row.report_type || "completion", title: row.title, summary: row.summary || "", proofUrl: row.proof_url || "", nextAction: row.next_action || "", reportedAt: isoDateTime(row.reported_at) };
+}
+
+function classifyOperatingText(text: string): OperatingEvent["eventType"] {
+  const lower = text.toLowerCase();
+  if (/\b(done|fatto|finito|completed|pubblicato|consegnato)\b/.test(lower)) return "done";
+  if (/\b(block|blocked|bloccato|ostacolo|non riesco|stuck)\b/.test(lower)) return "blocked";
+  if (/\b(stat|metrica|numero|views|lead|soldi|€|euro|ore|followers?)\b/.test(lower)) return "stat";
+  if (/\b(decid|decisione|scelgo|approvo|go with)\b/.test(lower)) return "decision";
+  if (/\b(order|ordine|devo|must|bisogna)\b/.test(lower)) return "order";
+  if (/\b(risk|rischio|outness|wrong|errore|pericolo)\b/.test(lower)) return "risk";
+  if (/\b(proof|prova|screenshot|link|commit|url)\b/.test(lower)) return "proof";
+  return "note";
+}
+
+async function findBusinessUnitForText(text: string) {
+  const lower = text.toLowerCase();
+  const result = await getLifeOsPool().query("select id::text, slug, name from life_os.business_units where status <> 'archived'");
+  const rows = result.rows;
+  const direct = rows.find((row) => lower.includes(String(row.slug).replaceAll('-', ' ')) || lower.includes(String(row.name).toLowerCase()));
+  if (direct) return direct;
+  if (/abc|client/.test(lower)) return rows.find((row) => row.slug === 'client-delivery') || null;
+  if (/lead|prospect|demo|follow/.test(lower)) return rows.find((row) => row.slug === 'prospects-lead-pipeline') || null;
+  if (/prohappya|crm/.test(lower)) return rows.find((row) => row.slug === 'prohappya') || null;
+  if (/zambetin|catalin|youtube copii/.test(lower)) return rows.find((row) => row.slug === 'zambetin-tv') || null;
+  if (/vindepemarte.*fun|comedy|meme/.test(lower)) return rows.find((row) => row.slug === 'vindepemarte-fun') || null;
+  if (/vindepemarte|song|music|suno/.test(lower)) return rows.find((row) => row.slug === 'vindepemarte-music') || null;
+  if (/iacovici|ai content|video|corso/.test(lower)) return rows.find((row) => row.slug === 'iacovici-it') || null;
+  return null;
+}
+
+async function findMainStatisticForUnit(businessUnitId?: string) {
+  if (!businessUnitId) return null;
+  const result = await getLifeOsPool().query("select id::text, name from life_os.admin_statistics where business_unit_id=$1 and status='active' order by is_main desc, created_at limit 1", [businessUnitId]);
+  return result.rows[0] || null;
+}
+
+export async function ingestOperatingUpdate(input: { text: string; source?: string; proofUrl?: string; value?: number; title?: string }) {
+  const text = input.text.trim();
+  if (!text) throw new Error("Missing text");
+  const eventType = classifyOperatingText(text);
+  const businessUnit = await findBusinessUnitForText(text);
+  const statistic = eventType === "stat" ? await findMainStatisticForUnit(businessUnit?.id) : null;
+  const numberMatch = text.match(/-?\d+(?:[\.,]\d+)?/);
+  const value = input.value ?? (numberMatch ? Number(numberMatch[0].replace(',', '.')) : null);
+  const title = input.title || (eventType === "done" ? "Completion update" : eventType === "blocked" ? "Blocked flow" : eventType === "stat" ? "Statistic update" : eventType === "decision" ? "Decision captured" : "Operating note");
+  const client = await getLifeOsPool().connect();
+  try {
+    await client.query('begin');
+    let taskId: string | null = null;
+    let reportId: string | null = null;
+    if (eventType === "done") {
+      const task = await client.query(
+        `insert into life_os.tasks (title, notes, priority, status, due_date, tags, source, proof_url, output_expected)
+         values ($1,$2,'medium','done',current_date,ARRAY['telegram','done','proof-required'], $3, $4, $5)
+         returning id::text`,
+        [title, text, input.source || "telegram", input.proofUrl || "", "Completion with proof/report"],
+      );
+      taskId = task.rows[0].id;
+      const report = await client.query(
+        `insert into life_os.execution_reports (business_unit_id, task_id, report_type, title, summary, proof_url, next_action, reported_by)
+         values ($1,$2,'completion',$3,$4,$5,'Check stat/proof and choose next action','Lexa') returning id::text`,
+        [businessUnit?.id || null, taskId, title, text, input.proofUrl || ""],
+      );
+      reportId = report.rows[0].id;
+    }
+    if (eventType === "blocked") {
+      const task = await client.query(
+        `insert into life_os.tasks (title, notes, priority, status, due_date, tags, source, blocked_reason)
+         values ($1,$2,'high','doing',current_date,ARRAY['telegram','blocked','outness'], $3, $4)
+         returning id::text`,
+        [title, text, input.source || "telegram", text],
+      );
+      taskId = task.rows[0].id;
+    }
+    if (eventType === "stat" && statistic?.id && value !== null) {
+      const prev = await client.query("select value from life_os.statistic_entries where statistic_id=$1 order by period_end desc limit 1", [statistic.id]);
+      await client.query(
+        `insert into life_os.statistic_entries (statistic_id, period_start, period_end, value, previous_value, evidence_url, notes, source)
+         values ($1,current_date,current_date,$2,$3,$4,$5,$6)
+         on conflict (statistic_id, period_start, period_end) do update set value=$2, previous_value=$3, evidence_url=$4, notes=$5, source=$6, updated_at=now()`,
+        [statistic.id, value, prev.rows[0]?.value ?? null, input.proofUrl || "", text, input.source || "telegram"],
+      );
+    }
+    if (eventType === "decision") {
+      await client.query(
+        `insert into life_os.decision_log (business_unit_id, decision, rationale, expected_effect, source)
+         values ($1,$2,$3,$4,$5)`,
+        [businessUnit?.id || null, text, "Captured from natural Telegram/update text", "Review impact on statistics in next weekly review", input.source || "telegram"],
+      );
+    }
+    const event = await client.query(
+      `insert into life_os.operating_events (event_type, business_unit_id, task_id, statistic_id, title, body, raw_text, value, proof_url, status, source, metadata)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       returning id::text, event_type, business_unit_id::text, task_id::text, statistic_id::text, title, body, raw_text, value, proof_url, status, source, created_at`,
+      [eventType, businessUnit?.id || null, taskId, statistic?.id || null, title, text, text, value, input.proofUrl || "", eventType === "risk" ? "needs_review" : "processed", input.source || "telegram", { reportId }],
+    );
+    await client.query('commit');
+    const row = event.rows[0];
+    return { id: row.id, eventType: row.event_type, businessUnitId: row.business_unit_id || "", businessUnitName: businessUnit?.name || "", taskId: row.task_id || "", statisticId: row.statistic_id || "", statisticName: statistic?.name || "", title: row.title, body: row.body || "", rawText: row.raw_text || "", value: row.value === null || row.value === undefined ? null : Number(row.value), proofUrl: row.proof_url || "", status: row.status || "processed", source: row.source || "telegram", createdAt: isoDateTime(row.created_at) } satisfies OperatingEvent;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus) {

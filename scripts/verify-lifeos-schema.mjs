@@ -17,6 +17,9 @@ const expected = {
   battle_plans: ['id', 'business_unit_id', 'plan_type', 'title', 'purpose', 'period_start', 'period_end', 'status', 'linked_condition_assignment_id', 'strategic_plan_link', 'review_notes', 'created_by', 'created_at', 'updated_at'],
   battle_plan_items: ['id', 'battle_plan_id', 'task_id', 'final_valuable_product_id', 'statistic_id', 'title', 'output_expected', 'proof_required', 'owner', 'due_at', 'status', 'sort_order', 'created_at', 'updated_at'],
   execution_reports: ['id', 'business_unit_id', 'battle_plan_id', 'battle_plan_item_id', 'task_id', 'report_type', 'title', 'summary', 'proof_url', 'statistic_effect', 'next_action', 'reported_by', 'reported_at', 'created_at', 'updated_at'],
+  operating_events: ['id', 'event_type', 'business_unit_id', 'task_id', 'statistic_id', 'title', 'body', 'raw_text', 'value', 'proof_url', 'status', 'source', 'metadata', 'created_at', 'updated_at'],
+  decision_log: ['id', 'business_unit_id', 'decision', 'rationale', 'expected_effect', 'status', 'source', 'decided_at', 'created_at', 'updated_at'],
+  life_os_cleanup_log: ['id', 'entity_type', 'entity_id', 'action', 'reason', 'performed_by', 'created_at'],
 };
 
 async function main() {

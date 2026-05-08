@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { AppState, ClientRecord, ContentItem, Idea, Inspiration, LexaSuggestion, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
+import type { AppState, ClientRecord, ContentItem, Idea, Inspiration, LexaSuggestion, OperatingEvent, Task, TaskPriority, TaskStatus, TimeCategory, TimeLog } from "@/lib/lifeOsDb";
 import { LifeOsNav } from "@/components/life-os/LifeOsNav";
 import { MobileCommandStrip } from "@/components/life-os/MobileCommandStrip";
 import { categories, lexaModes, priorityStyle, type TabKey } from "@/components/life-os/constants";
@@ -62,6 +62,8 @@ const defaultState: AppState = {
   battlePlans: [],
   battlePlanItems: [],
   executionReports: [],
+  operatingEvents: [],
+  decisionLog: [],
 };
 
 
@@ -88,6 +90,8 @@ function loadLocalState(): AppState {
       battlePlans: parsed.battlePlans ?? [],
       battlePlanItems: parsed.battlePlanItems ?? [],
       executionReports: parsed.executionReports ?? [],
+      operatingEvents: parsed.operatingEvents ?? [],
+      decisionLog: parsed.decisionLog ?? [],
     };
   } catch {
     return defaultState;
@@ -291,6 +295,15 @@ export default function KanbanBoard() {
     }
     return { conditions, statsByUnit, fvpsByUnit };
   }, [state]);
+
+  const adminSignals = useMemo(() => {
+    const unresolved = state.operatingEvents.filter((event) => ["open", "needs_review"].includes(event.status));
+    const missingStats = state.adminStatistics.filter((stat) => stat.latestValue === null);
+    const proofNeeded = state.battlePlanItems.filter((item) => item.status === "done" && !item.proofRequired);
+    const weeklyDone = state.executionReports.filter((report) => report.reportedAt && Date.now() - new Date(report.reportedAt).getTime() < 7 * 24 * 60 * 60 * 1000);
+    const wip = state.battlePlanItems.filter((item) => item.status === "doing");
+    return { unresolved, missingStats, proofNeeded, weeklyDone, wip };
+  }, [state.adminStatistics, state.battlePlanItems, state.executionReports, state.operatingEvents]);
 
   const visibleTasks = useMemo(() => {
     return state.tasks.filter((task) => {
@@ -565,6 +578,30 @@ export default function KanbanBoard() {
               </div>
             </Panel>
             <div className="space-y-5 min-w-0">
+              <Panel title="Operating brain" subtitle="Telegram → DB events. Useful only; noise gets archived, not deleted.">
+                <div className="grid grid-cols-3 gap-2">
+                  <Metric label="Review" value={`${adminSignals.unresolved.length}`} danger={adminSignals.unresolved.some((event) => event.status === "needs_review")} />
+                  <Metric label="Missing stats" value={`${adminSignals.missingStats.length}`} />
+                  <Metric label="WIP" value={`${adminSignals.wip.length}`} danger={adminSignals.wip.length > 3} />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {state.operatingEvents.slice(0, 6).map((event) => <OperatingEventMini key={event.id} event={event} />)}
+                  {state.operatingEvents.length === 0 && <EmptyState text="No operating events yet. Telegram updates can now become stat/done/block/decision/order/risk records." />}
+                </div>
+              </Panel>
+              <Panel title="Weekly review engine" subtitle="Stats → trend → condition → formula → next battle plan.">
+                <div className="space-y-3">
+                  <ActionCard title="1. Missing data" body={adminSignals.missingStats.length ? adminSignals.missingStats.slice(0, 3).map((stat) => `${stat.businessUnitName}: ${stat.name}`).join("\n") : "Main stats have at least one value or are ready for the next weekly entry."} />
+                  <ActionCard title="2. Trend/proof" body={`${adminSignals.weeklyDone.length} reports filed in the last 7 days. Done is not enough without proof/report/stat effect.`} />
+                  <ActionCard title="3. WIP limit" body={adminSignals.wip.length > 3 ? `Too many active items (${adminSignals.wip.length}). Finish or cancel before adding more.` : `${adminSignals.wip.length}/3 active items. Keep it calm.`} />
+                </div>
+              </Panel>
+              <Panel title="Decision / archive log" subtitle="Important choices are recorded; cleanup hides noise without deleting history.">
+                <div className="space-y-3">
+                  {state.decisionLog.slice(0, 5).map((entry) => <ActionCard key={entry.id} title={entry.decision} body={`${entry.businessUnitName || "Portfolio"} • ${entry.status}\n${entry.expectedEffect || entry.rationale}`} />)}
+                  {state.decisionLog.length === 0 && <EmptyState text="No decisions captured yet." />}
+                </div>
+              </Panel>
               <Panel title="Portfolio lanes" subtitle="Approved separation.">
                 <div className="space-y-3">
                   <ActionCard title="Business nostri" body="Iacovici.it • ProHappyA • Vindepemarte Music/Fun • Zâmbetin TV" />
@@ -984,6 +1021,21 @@ function ContentMini({ item }: { item: ContentItem }) {
       {item.hook && <p className="mt-3 text-sm font-bold leading-6 text-slate-800">Hook: {item.hook}</p>}
       {item.scriptNotes && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.scriptNotes}</p>}
       {(item.plannedDate || item.publishUrl) && <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{item.plannedDate || "published"} {item.publishUrl ? "• live link saved" : ""}</p>}
+    </article>
+  );
+}
+
+function OperatingEventMini({ event }: { event: OperatingEvent }) {
+  const color = event.status === "needs_review" ? "rose" : event.eventType === "done" ? "emerald" : event.eventType === "stat" ? "indigo" : "slate";
+  const badgeClass = color === "rose" ? "bg-rose-50 text-rose-700" : color === "emerald" ? "bg-emerald-50 text-emerald-700" : color === "indigo" ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600";
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-3 text-sm leading-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="font-black text-slate-950">{event.title}</p>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${badgeClass}`}>{event.eventType}</span>
+      </div>
+      <p className="mt-1 text-slate-600">{event.businessUnitName || "Portfolio"}{event.statisticName ? ` • ${event.statisticName}` : ""}{event.value !== null ? ` • ${event.value}` : ""}</p>
+      {event.body && <p className="mt-2 line-clamp-3 text-slate-500">{event.body}</p>}
     </article>
   );
 }
